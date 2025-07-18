@@ -454,49 +454,306 @@ class WordSearchGenerator {
    * Print the puzzle
    */
   printPuzzle() {
-    // Temporarily show solution for printing
-    const wasHidden = this.solutionGrid.classList.contains("hidden");
-    if (wasHidden) {
-      this.solutionGrid.classList.remove("hidden");
+    // Ensure we have content to print
+    if (!this.currentPuzzle || !this.currentSolution) {
+      this.showError("No puzzle generated yet. Please generate a puzzle first.");
+      return;
     }
 
-    window.print();
+    // Create a print-friendly version
+    const printContent = document.createElement("div");
+    printContent.style.width = "100%";
+    printContent.style.backgroundColor = "white";
+    printContent.style.padding = "20px";
+    printContent.style.fontFamily = "Arial, sans-serif";
+    printContent.style.color = "black";
 
-    // Hide solution again if it was hidden before
-    if (wasHidden) {
-      this.solutionGrid.classList.add("hidden");
+    // Add title
+    const title = document.createElement("h1");
+    title.textContent = "Word Search Puzzle";
+    title.style.textAlign = "center";
+    title.style.marginBottom = "20px";
+    title.style.fontSize = "24px";
+    printContent.appendChild(title);
+
+    // Add word list
+    const wordList = document.createElement("div");
+    wordList.style.marginBottom = "20px";
+    wordList.style.padding = "10px";
+    wordList.style.border = "1px solid black";
+    wordList.style.backgroundColor = "white";
+
+    const wordListTitle = document.createElement("h3");
+    wordListTitle.textContent = "Words to find:";
+    wordListTitle.style.marginBottom = "10px";
+    wordList.appendChild(wordListTitle);
+
+    const words = this.getWordList();
+    const wordText = document.createElement("p");
+    wordText.textContent = words.join(", ");
+    wordText.style.margin = "0";
+    wordList.appendChild(wordText);
+    printContent.appendChild(wordList);
+
+    // Add puzzle grid
+    const puzzleSection = document.createElement("div");
+    puzzleSection.style.marginBottom = "20px";
+
+    const puzzleTitle = document.createElement("h3");
+    puzzleTitle.textContent = "Puzzle:";
+    puzzleTitle.style.marginBottom = "10px";
+    puzzleSection.appendChild(puzzleTitle);
+
+    const puzzleTable = this.createTableForPDF(this.currentPuzzle, "puzzle-cell");
+    puzzleSection.appendChild(puzzleTable);
+    printContent.appendChild(puzzleSection);
+
+    // Add solution grid
+    const solutionSection = document.createElement("div");
+
+    const solutionTitle = document.createElement("h3");
+    solutionTitle.textContent = "Solution:";
+    solutionTitle.style.marginBottom = "10px";
+    solutionSection.appendChild(solutionTitle);
+
+    const solutionTable = this.createTableForPDF(this.currentSolution, "solution-cell");
+    solutionSection.appendChild(solutionTable);
+    printContent.appendChild(solutionSection);
+
+    // Create a new window for printing
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Word Search Puzzle</title>
+          <style>
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 0; 
+              padding: 20px; 
+              background: white; 
+              color: black; 
+            }
+            .puzzle-cell, .solution-cell {
+              width: 20px;
+              height: 20px;
+              border: 1px solid black;
+              text-align: center;
+              vertical-align: middle;
+              font-size: 10px;
+              font-weight: bold;
+              background-color: white;
+              color: black;
+              padding: 0;
+            }
+            table {
+              border-collapse: collapse;
+              table-layout: fixed;
+              margin: 0 auto;
+            }
+            @media print {
+              body { margin: 0; padding: 10px; }
+            }
+          </style>
+        </head>
+        <body>
+          ${printContent.outerHTML}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+
+    // Wait for content to load, then print
+    printWindow.onload = function () {
+      printWindow.print();
+      printWindow.close();
+    };
+  }
+
+  /**
+   * Download puzzle as PDF using jsPDF
+   */
+  downloadPDF() {
+    // Ensure we have content to generate
+    if (!this.currentPuzzle || !this.currentSolution) {
+      this.showError("No puzzle generated yet. Please generate a puzzle first.");
+      return;
+    }
+
+    try {
+      // Create new jsPDF document (8.5x11 inches)
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({
+        orientation: "portrait",
+        unit: "in",
+        format: "letter",
+      });
+
+      // Set margins (1 inch on all sides)
+      const margin = 1;
+      const pageWidth = 8.5;
+      const pageHeight = 11;
+      const contentWidth = pageWidth - 2 * margin;
+      const contentHeight = pageHeight - 2 * margin;
+
+      // Starting position
+      let y = margin + 0.5; // Start 0.5 inches from top margin
+
+      // Add title
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      const title = "Word Search Puzzle";
+      const titleWidth = doc.getTextWidth(title);
+      const titleX = margin + (contentWidth - titleWidth) / 2;
+      doc.text(title, titleX, y);
+      y += 0.4;
+
+      // Add word list
+      const words = this.getWordList();
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Words to find:", margin, y);
+      y += 0.25;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+
+      // Split words into lines that fit the page width
+      const maxWordsPerLine = Math.floor(contentWidth / 0.6); // Approximate width per word
+      for (let i = 0; i < words.length; i += maxWordsPerLine) {
+        const lineWords = words.slice(i, i + maxWordsPerLine);
+        doc.text(lineWords.join(", "), margin, y);
+        y += 0.2;
+      }
+      y += 0.3;
+
+      // Add puzzle grid
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Puzzle:", margin, y);
+      y += 0.3;
+
+      // Calculate grid size and position
+      const gridSize = this.currentPuzzle.length;
+      const cellSize = Math.min(contentWidth / gridSize, 0.3); // Max 0.3 inches per cell
+      const gridWidth = gridSize * cellSize;
+      const gridX = margin + (contentWidth - gridWidth) / 2;
+
+      // Draw puzzle grid
+      this.drawGrid(doc, this.currentPuzzle, gridX, y, cellSize);
+      y += gridWidth + 0.4;
+
+      // Add solution grid
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Solution:", margin, y);
+      y += 0.3;
+
+      // Draw solution grid
+      this.drawGrid(doc, this.currentSolution, gridX, y, cellSize);
+
+      // Save the PDF
+      doc.save("word-search-puzzle.pdf");
+    } catch (error) {
+      console.error("PDF generation error:", error);
+      this.showError("PDF generation failed. Please try printing instead.");
     }
   }
 
   /**
-   * Download puzzle as PDF
+   * Draw a grid for the PDF
    */
-  downloadPDF() {
-    const element = document.getElementById("outputSection");
-    const opt = {
-      margin: 1,
-      filename: "word-search-puzzle.pdf",
-      image: { type: "jpeg", quality: 0.98 },
-      html2canvas: { scale: 2 },
-      jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
-    };
+  drawGrid(doc, grid, startX, startY, cellSize) {
+    const gridSize = grid.length;
 
-    // Temporarily show solution for PDF
-    const wasHidden = this.solutionGrid.classList.contains("hidden");
-    if (wasHidden) {
-      this.solutionGrid.classList.remove("hidden");
+    // Draw grid lines
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.01);
+
+    // Vertical lines
+    for (let i = 0; i <= gridSize; i++) {
+      const x = startX + i * cellSize;
+      doc.line(x, startY, x, startY + gridSize * cellSize);
     }
 
-    html2pdf()
-      .set(opt)
-      .from(element)
-      .save()
-      .then(() => {
-        // Hide solution again if it was hidden before
-        if (wasHidden) {
-          this.solutionGrid.classList.add("hidden");
-        }
-      });
+    // Horizontal lines
+    for (let i = 0; i <= gridSize; i++) {
+      const y = startY + i * cellSize;
+      doc.line(startX, y, startX + gridSize * cellSize, y);
+    }
+
+    // Add letters
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const x = startX + col * cellSize + cellSize / 2;
+        const y = startY + row * cellSize + cellSize / 2 + 0.05; // Small offset for centering
+        const letter = grid[row][col];
+
+        // Center the text in the cell
+        const textWidth = doc.getTextWidth(letter);
+        const textX = x - textWidth / 2;
+
+        doc.text(letter, textX, y);
+      }
+    }
+  }
+
+  /**
+   * Create HTML table string for PDF
+   */
+  createTableHTML(grid) {
+    let tableHTML = "<table>";
+
+    for (let i = 0; i < grid.length; i++) {
+      tableHTML += "<tr>";
+      for (let j = 0; j < grid[i].length; j++) {
+        tableHTML += `<td>${grid[i][j]}</td>`;
+      }
+      tableHTML += "</tr>";
+    }
+
+    tableHTML += "</table>";
+    return tableHTML;
+  }
+
+  /**
+   * Create a table element for PDF export
+   */
+  createTableForPDF(grid, cellClass) {
+    const table = document.createElement("table");
+    table.style.borderCollapse = "collapse";
+    table.style.tableLayout = "fixed";
+    table.style.margin = "0 auto";
+    table.style.maxWidth = "100%";
+
+    for (let i = 0; i < grid.length; i++) {
+      const row = document.createElement("tr");
+
+      for (let j = 0; j < grid[i].length; j++) {
+        const cell = document.createElement("td");
+        cell.textContent = grid[i][j];
+        cell.style.width = "20px";
+        cell.style.height = "20px";
+        cell.style.border = "1px solid black";
+        cell.style.textAlign = "center";
+        cell.style.verticalAlign = "middle";
+        cell.style.fontSize = "10px";
+        cell.style.fontWeight = "bold";
+        cell.style.backgroundColor = "white";
+        cell.style.color = "black";
+        cell.style.padding = "0";
+        cell.className = cellClass;
+        row.appendChild(cell);
+      }
+
+      table.appendChild(row);
+    }
+
+    return table;
   }
 
   /**

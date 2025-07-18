@@ -73,11 +73,13 @@
   body {
     background: white !important;
     color: black !important;
+    margin: 0 !important;
+    padding: 0 !important;
   }
 
   .container {
     max-width: none !important;
-    padding: 0 !important;
+    padding: 20px !important;
   }
 
   /* Hide elements not needed for printing */
@@ -87,7 +89,8 @@
   #toggleSolution,
   .bg-white,
   .shadow-md,
-  .rounded-lg {
+  .rounded-lg,
+  header {
     display: none !important;
   }
 
@@ -99,10 +102,11 @@
   /* Ensure puzzle fits on page */
   .puzzle-cell,
   .solution-cell {
-    width: 20px !important;
-    height: 20px !important;
-    font-size: 10px !important;
+    width: 18px !important;
+    height: 18px !important;
+    font-size: 9px !important;
     border: 1px solid #000 !important;
+    padding: 0 !important;
   }
 
   /* Remove background colors for better printing */
@@ -114,9 +118,28 @@
     color: black !important;
   }
 
-  /* Page break before puzzle */
-  #outputSection {
-    page-break-before: always;
+  /* Ensure tables display properly in print */
+  #puzzleGrid table,
+  #solutionGrid table {
+    border-collapse: collapse !important;
+    table-layout: fixed !important;
+  }
+
+  /* Layout for print */
+  #puzzleContainer {
+    display: block !important;
+  }
+
+  #puzzleContainer > div {
+    margin-bottom: 20px !important;
+  }
+
+  /* Word list styling for print */
+  #wordListDisplay {
+    background: white !important;
+    border: 1px solid #000 !important;
+    padding: 10px !important;
+    margin-bottom: 15px !important;
   }
 }
 
