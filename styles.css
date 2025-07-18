@@ -1,0 +1,183 @@
+/* Custom styles for the word search puzzle */
+
+/* Table Layout Styles */
+#puzzleGrid table,
+#solutionGrid table {
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+#puzzleGrid td,
+#solutionGrid td {
+  box-sizing: border-box;
+}
+
+/* Puzzle Grid Styles */
+.puzzle-cell {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d1d5db;
+  text-align: center;
+  vertical-align: middle;
+  font-weight: bold;
+  font-size: 14px;
+  background-color: white;
+  user-select: none;
+  padding: 0;
+}
+
+.puzzle-cell.highlighted {
+  background-color: #fbbf24;
+  color: #92400e;
+}
+
+/* Solution Grid Styles */
+.solution-cell {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d1d5db;
+  text-align: center;
+  vertical-align: middle;
+  font-weight: bold;
+  font-size: 14px;
+  background-color: white;
+  padding: 0;
+}
+
+.solution-cell.found {
+  background-color: #10b981;
+  color: white;
+}
+
+/* Responsive grid sizing */
+@media (max-width: 768px) {
+  .puzzle-cell,
+  .solution-cell {
+    width: 25px;
+    height: 25px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .puzzle-cell,
+  .solution-cell {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+}
+
+/* Print Styles */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .container {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  /* Hide elements not needed for printing */
+  #generateBtn,
+  #printBtn,
+  #downloadBtn,
+  #toggleSolution,
+  .bg-white,
+  .shadow-md,
+  .rounded-lg {
+    display: none !important;
+  }
+
+  /* Show solution by default when printing */
+  #solutionGrid {
+    display: inline-block !important;
+  }
+
+  /* Ensure puzzle fits on page */
+  .puzzle-cell,
+  .solution-cell {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 10px !important;
+    border: 1px solid #000 !important;
+  }
+
+  /* Remove background colors for better printing */
+  .puzzle-cell,
+  .solution-cell,
+  #puzzleGrid,
+  #solutionGrid {
+    background-color: white !important;
+    color: black !important;
+  }
+
+  /* Page break before puzzle */
+  #outputSection {
+    page-break-before: always;
+  }
+}
+
+/* Loading animation */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.loading::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Focus styles for accessibility */
+button:focus,
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Custom scrollbar for word list */
+#wordListDisplay {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+#wordListDisplay::-webkit-scrollbar {
+  width: 6px;
+}
+
+#wordListDisplay::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+#wordListDisplay::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+#wordListDisplay::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
