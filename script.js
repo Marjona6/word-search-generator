@@ -597,61 +597,98 @@ class WordSearchGenerator {
       const contentWidth = pageWidth - 2 * margin;
       const contentHeight = pageHeight - 2 * margin;
 
-      // Starting position
-      let y = margin + 0.5; // Start 0.5 inches from top margin
-
-      // Add title
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      const title = "Word Search Puzzle";
-      const titleWidth = doc.getTextWidth(title);
-      const titleX = margin + (contentWidth - titleWidth) / 2;
-      doc.text(title, titleX, y);
-      y += 0.4;
-
-      // Add word list
-      const words = this.getWordList();
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Words to find:", margin, y);
-      y += 0.25;
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-
-      // Split words into lines that fit the page width
-      const maxWordsPerLine = Math.floor(contentWidth / 0.6); // Approximate width per word
-      for (let i = 0; i < words.length; i += maxWordsPerLine) {
-        const lineWords = words.slice(i, i + maxWordsPerLine);
-        doc.text(lineWords.join(", "), margin, y);
-        y += 0.2;
-      }
-      y += 0.3;
-
-      // Add puzzle grid
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Puzzle:", margin, y);
-      y += 0.3;
-
-      // Calculate grid size and position
+      // Calculate grid size and cell size
       const gridSize = this.currentPuzzle.length;
       const cellSize = Math.min(contentWidth / gridSize, 0.3); // Max 0.3 inches per cell
       const gridWidth = gridSize * cellSize;
+      const gridHeight = gridSize * cellSize;
       const gridX = margin + (contentWidth - gridWidth) / 2;
 
-      // Draw puzzle grid
-      this.drawGrid(doc, this.currentPuzzle, gridX, y, cellSize);
-      y += gridWidth + 0.4;
+      // Calculate content heights
+      const titleHeight = 0.4;
+      const wordListHeight = this.calculateWordListHeight(contentWidth);
+      const puzzleLabelHeight = 0.3;
+      const solutionLabelHeight = 0.3;
+      const spacing = 0.3;
 
-      // Add solution grid
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Solution:", margin, y);
-      y += 0.3;
+      // Calculate total height needed
+      const totalHeight = titleHeight + wordListHeight + spacing + puzzleLabelHeight + gridHeight + spacing + solutionLabelHeight + gridHeight;
 
-      // Draw solution grid
-      this.drawGrid(doc, this.currentSolution, gridX, y, cellSize);
+      // Check if we need multiple pages
+      if (totalHeight > contentHeight) {
+        // First page: Title, word list, and puzzle
+        let y = margin + 0.5;
+
+        // Add title
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        const title = "Word Search Puzzle";
+        const titleWidth = doc.getTextWidth(title);
+        const titleX = margin + (contentWidth - titleWidth) / 2;
+        doc.text(title, titleX, y);
+        y += titleHeight;
+
+        // Add word list
+        y = this.addWordList(doc, margin, y, contentWidth);
+
+        // Add puzzle grid
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Puzzle:", margin, y);
+        y += puzzleLabelHeight;
+
+        // Draw puzzle grid
+        this.drawGrid(doc, this.currentPuzzle, gridX, y, cellSize);
+
+        // Add new page for solution
+        doc.addPage();
+
+        // Second page: Solution
+        y = margin + 0.5;
+
+        // Add solution grid
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Solution:", margin, y);
+        y += solutionLabelHeight;
+
+        // Draw solution grid
+        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize);
+      } else {
+        // Single page: Everything fits
+        let y = margin + 0.5;
+
+        // Add title
+        doc.setFontSize(18);
+        doc.setFont("helvetica", "bold");
+        const title = "Word Search Puzzle";
+        const titleWidth = doc.getTextWidth(title);
+        const titleX = margin + (contentWidth - titleWidth) / 2;
+        doc.text(title, titleX, y);
+        y += titleHeight;
+
+        // Add word list
+        y = this.addWordList(doc, margin, y, contentWidth);
+
+        // Add puzzle grid
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Puzzle:", margin, y);
+        y += puzzleLabelHeight;
+
+        // Draw puzzle grid
+        this.drawGrid(doc, this.currentPuzzle, gridX, y, cellSize);
+        y += gridHeight + spacing;
+
+        // Add solution grid
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Solution:", margin, y);
+        y += solutionLabelHeight;
+
+        // Draw solution grid
+        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize);
+      }
 
       // Save the PDF
       doc.save("word-search-puzzle.pdf");
@@ -659,6 +696,42 @@ class WordSearchGenerator {
       console.error("PDF generation error:", error);
       this.showError("PDF generation failed. Please try printing instead.");
     }
+  }
+
+  /**
+   * Calculate the height needed for the word list
+   */
+  calculateWordListHeight(contentWidth) {
+    const words = this.getWordList();
+    const maxWordsPerLine = Math.floor(contentWidth / 0.6); // Approximate width per word
+    const lines = Math.ceil(words.length / maxWordsPerLine);
+    return 0.25 + lines * 0.2 + 0.3; // Label height + line heights + spacing
+  }
+
+  /**
+   * Add word list to the PDF and return the new y position
+   */
+  addWordList(doc, margin, y, contentWidth) {
+    const words = this.getWordList();
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Words to find:", margin, y);
+    y += 0.25;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+
+    // Split words into lines that fit the page width
+    const maxWordsPerLine = Math.floor(contentWidth / 0.6); // Approximate width per word
+    for (let i = 0; i < words.length; i += maxWordsPerLine) {
+      const lineWords = words.slice(i, i + maxWordsPerLine);
+      doc.text(lineWords.join(", "), margin, y);
+      y += 0.2;
+    }
+    y += 0.3;
+
+    return y;
   }
 
   /**
