@@ -13,6 +13,7 @@ class WordSearchGenerator {
 
   initializeElements() {
     // Input elements
+    this.puzzleNameInput = document.getElementById("puzzleName");
     this.wordListInput = document.getElementById("wordList");
     this.puzzleSizeSelect = document.getElementById("puzzleSize");
     this.horizontalCheckbox = document.getElementById("horizontal");
@@ -85,9 +86,19 @@ class WordSearchGenerator {
 
     return input
       .split("\n")
-      .map((word) => word.trim().toUpperCase())
+      .map((word) => word.trim())
       .filter((word) => word.length > 0)
+      .map((word) => word.replace(/[^A-Za-z]/g, "").toUpperCase()) // Remove non-letters and convert to uppercase
+      .filter((word) => word.length > 0) // Remove words that became empty after filtering
       .filter((word, index, arr) => arr.indexOf(word) === index); // Remove duplicates
+  }
+
+  /**
+   * Get puzzle name (defaults to "Word Search Puzzle" if empty)
+   */
+  getPuzzleName() {
+    const name = this.puzzleNameInput.value.trim();
+    return name || "Word Search Puzzle";
   }
 
   /**
@@ -470,7 +481,7 @@ class WordSearchGenerator {
 
     // Add title
     const title = document.createElement("h1");
-    title.textContent = "Word Search Puzzle";
+    title.textContent = this.getPuzzleName();
     title.style.textAlign = "center";
     title.style.marginBottom = "20px";
     title.style.fontSize = "24px";
@@ -622,7 +633,7 @@ class WordSearchGenerator {
         // Add title
         doc.setFontSize(18);
         doc.setFont("helvetica", "bold");
-        const title = "Word Search Puzzle";
+        const title = this.getPuzzleName();
         const titleWidth = doc.getTextWidth(title);
         const titleX = margin + (contentWidth - titleWidth) / 2;
         doc.text(title, titleX, y);
@@ -661,7 +672,7 @@ class WordSearchGenerator {
         // Add title
         doc.setFontSize(18);
         doc.setFont("helvetica", "bold");
-        const title = "Word Search Puzzle";
+        const title = this.getPuzzleName();
         const titleWidth = doc.getTextWidth(title);
         const titleX = margin + (contentWidth - titleWidth) / 2;
         doc.text(title, titleX, y);
