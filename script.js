@@ -20,6 +20,7 @@ class WordSearchGenerator {
     this.verticalCheckbox = document.getElementById("vertical");
     this.diagonalCheckbox = document.getElementById("diagonal");
     this.reverseCheckbox = document.getElementById("reverse");
+    this.showGridLinesCheckbox = document.getElementById("showGridLines");
     this.generateBtn = document.getElementById("generateBtn");
 
     // Output elements
@@ -111,6 +112,13 @@ class WordSearchGenerator {
       diagonal: this.diagonalCheckbox.checked,
       reverse: this.reverseCheckbox.checked,
     };
+  }
+
+  /**
+   * Get grid lines preference
+   */
+  getGridLinesPreference() {
+    return this.showGridLinesCheckbox.checked;
   }
 
   /**
@@ -427,6 +435,8 @@ class WordSearchGenerator {
     const table = document.createElement("table");
     table.style.borderCollapse = "collapse";
 
+    const showGridLines = this.getGridLinesPreference();
+
     for (let i = 0; i < grid.length; i++) {
       const row = document.createElement("tr");
 
@@ -436,6 +446,14 @@ class WordSearchGenerator {
         cell.textContent = grid[i][j];
         cell.dataset.row = i;
         cell.dataset.col = j;
+
+        // Apply grid lines based on user preference
+        if (showGridLines) {
+          cell.style.border = "1px solid #ccc";
+        } else {
+          cell.style.border = "none";
+        }
+
         row.appendChild(cell);
       }
 
@@ -533,6 +551,9 @@ class WordSearchGenerator {
 
     // Create a new window for printing
     const printWindow = window.open("", "_blank");
+    const showGridLines = this.getGridLinesPreference();
+    const borderStyle = showGridLines ? "1px solid black" : "none";
+
     printWindow.document.write(`
       <!DOCTYPE html>
       <html>
@@ -549,7 +570,7 @@ class WordSearchGenerator {
             .puzzle-cell, .solution-cell {
               width: 20px;
               height: 20px;
-              border: 1px solid black;
+              border: ${borderStyle};
               text-align: center;
               vertical-align: middle;
               font-size: 10px;
@@ -750,21 +771,24 @@ class WordSearchGenerator {
    */
   drawGrid(doc, grid, startX, startY, cellSize) {
     const gridSize = grid.length;
+    const showGridLines = this.getGridLinesPreference();
 
-    // Draw grid lines
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.01);
+    // Draw grid lines only if user wants them
+    if (showGridLines) {
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.01);
 
-    // Vertical lines
-    for (let i = 0; i <= gridSize; i++) {
-      const x = startX + i * cellSize;
-      doc.line(x, startY, x, startY + gridSize * cellSize);
-    }
+      // Vertical lines
+      for (let i = 0; i <= gridSize; i++) {
+        const x = startX + i * cellSize;
+        doc.line(x, startY, x, startY + gridSize * cellSize);
+      }
 
-    // Horizontal lines
-    for (let i = 0; i <= gridSize; i++) {
-      const y = startY + i * cellSize;
-      doc.line(startX, y, startX + gridSize * cellSize, y);
+      // Horizontal lines
+      for (let i = 0; i <= gridSize; i++) {
+        const y = startY + i * cellSize;
+        doc.line(startX, y, startX + gridSize * cellSize, y);
+      }
     }
 
     // Add letters
@@ -814,6 +838,9 @@ class WordSearchGenerator {
     table.style.margin = "0 auto";
     table.style.maxWidth = "100%";
 
+    const showGridLines = this.getGridLinesPreference();
+    const borderStyle = showGridLines ? "1px solid black" : "none";
+
     for (let i = 0; i < grid.length; i++) {
       const row = document.createElement("tr");
 
@@ -822,7 +849,7 @@ class WordSearchGenerator {
         cell.textContent = grid[i][j];
         cell.style.width = "20px";
         cell.style.height = "20px";
-        cell.style.border = "1px solid black";
+        cell.style.border = borderStyle;
         cell.style.textAlign = "center";
         cell.style.verticalAlign = "middle";
         cell.style.fontSize = "10px";
