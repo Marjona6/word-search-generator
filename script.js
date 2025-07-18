@@ -335,21 +335,23 @@ class WordSearchGenerator {
     const vectors = [];
 
     if (directions.horizontal) {
-      vectors.push([0, 1]); // Right
-      if (directions.reverse) vectors.push([0, -1]); // Left
+      vectors.push([0, 1]); // Right (left to right)
+      if (directions.reverse) vectors.push([0, -1]); // Left (right to left)
     }
 
     if (directions.vertical) {
-      vectors.push([1, 0]); // Down
-      if (directions.reverse) vectors.push([-1, 0]); // Up
+      vectors.push([1, 0]); // Down (top to bottom)
+      if (directions.reverse) vectors.push([-1, 0]); // Up (bottom to top)
     }
 
     if (directions.diagonal) {
-      vectors.push([1, 1]); // Down-right
-      vectors.push([1, -1]); // Down-left
+      // Only forward diagonal directions (top to bottom, left to right)
+      vectors.push([1, 1]); // Down-right (top-left to bottom-right)
+      vectors.push([1, -1]); // Down-left (top-right to bottom-left)
       if (directions.reverse) {
-        vectors.push([-1, 1]); // Up-right
-        vectors.push([-1, -1]); // Up-left
+        // Add backward diagonal directions only when reverse is selected
+        vectors.push([-1, 1]); // Up-right (bottom-left to top-right)
+        vectors.push([-1, -1]); // Up-left (bottom-right to top-left)
       }
     }
 
