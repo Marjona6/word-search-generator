@@ -553,7 +553,13 @@ class WordSearchGenerator {
 
     const cell = table.querySelector("td");
     if (!cell) return;
-    const cellSize = cell.offsetWidth; // assumes square cells
+
+    // Get cell size, with fallback to CSS computed style
+    let cellSize = cell.offsetWidth;
+    if (cellSize === 0) {
+      const computedStyle = window.getComputedStyle(cell);
+      cellSize = parseInt(computedStyle.width) || 30; // fallback to 30px
+    }
 
     // Create SVG overlay
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -697,7 +703,8 @@ class WordSearchGenerator {
       toggleBtn.textContent = "Hide Solution";
       // Render overlay after a short delay to ensure grid is fully rendered
       if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-        setTimeout(() => this.renderCapsuleOverlay(), 100);
+        // Use a longer delay to ensure the grid is fully rendered and sized
+        setTimeout(() => this.renderCapsuleOverlay(), 200);
       }
     } else {
       solutionGrid.classList.add("hidden");
@@ -1192,6 +1199,12 @@ class WordSearchGenerator {
       let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
       let solutionDisplayGrid = useSolutionGrid ? this.currentSolution : this.currentPuzzle;
       this.renderGrid(this.solutionGrid, solutionDisplayGrid, "solution-cell", true);
+
+      // If solution is visible and outline option is checked, render the capsule overlay
+      if (!this.solutionGrid.classList.contains("hidden") && this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+        // Use a longer delay to ensure the grid is fully rendered and sized
+        setTimeout(() => this.renderCapsuleOverlay(), 200);
+      }
     }
   }
 }
