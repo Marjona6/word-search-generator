@@ -79,6 +79,10 @@
               <input type="checkbox" id="showGridLines" checked class="mr-2" />
               <span class="text-sm text-gray-700">Show grid lines</span>
             </label>
+            <label class="flex items-center">
+              <input type="checkbox" id="showGridBorder" checked class="mr-2" />
+              <span class="text-sm text-gray-700">Show grid border</span>
+            </label>
           </div>
         </div>
 
@@ -123,7 +127,7 @@
               <h3 class="text-lg font-medium text-gray-800 mb-3">Find these words:</h3>
               <div id="wordListDisplay" class="mb-4 p-3 bg-gray-100 rounded-md text-sm"></div>
 
-              <div id="puzzleGrid" class="inline-block border-2 border-gray-300 bg-white"></div>
+              <div id="puzzleGrid" class="inline-block bg-white"></div>
             </div>
 
             <!-- Solution (Hidden by default) -->
@@ -132,7 +136,7 @@
                 <h3 class="text-lg font-medium text-gray-800">Solution</h3>
                 <button id="toggleSolution" class="text-blue-600 hover:text-blue-800 text-sm underline">Show Solution</button>
               </div>
-              <div id="solutionGrid" class="inline-block border-2 border-gray-300 bg-white hidden"></div>
+              <div id="solutionGrid" class="inline-block bg-white hidden"></div>
             </div>
           </div>
         </div>

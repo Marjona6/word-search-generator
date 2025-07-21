@@ -22,6 +22,7 @@ class WordSearchGenerator {
     this.diagonalCheckbox = document.getElementById("diagonal");
     this.reverseCheckbox = document.getElementById("reverse");
     this.showGridLinesCheckbox = document.getElementById("showGridLines");
+    this.showGridBorderCheckbox = document.getElementById("showGridBorder");
     this.generateBtn = document.getElementById("generateBtn");
     this.outlineFoundWordsCheckbox = document.getElementById("outlineFoundWords");
     this.colorFoundWordsCheckbox = document.getElementById("colorFoundWords");
@@ -51,6 +52,9 @@ class WordSearchGenerator {
     }
     if (this.hideOtherSolutionLettersCheckbox) {
       this.hideOtherSolutionLettersCheckbox.addEventListener("change", () => this.updateSolutionDisplay());
+    }
+    if (this.showGridBorderCheckbox) {
+      this.showGridBorderCheckbox.addEventListener("change", () => this.updateGridBorders());
     }
   }
 
@@ -89,8 +93,6 @@ class WordSearchGenerator {
         this.currentSolution = result.solution;
         this.displayPuzzle(result.puzzle, result.solution, words);
         this.showOutput();
-        // Ensure the solution display is updated after setting the checkbox
-        this.updateSolutionDisplay();
       } else {
         this.showError(result.error);
       }
@@ -142,6 +144,13 @@ class WordSearchGenerator {
    */
   getGridLinesPreference() {
     return this.showGridLinesCheckbox.checked;
+  }
+
+  /**
+   * Get grid border preference
+   */
+  getGridBorderPreference() {
+    return this.showGridBorderCheckbox && this.showGridBorderCheckbox.checked;
   }
 
   /**
@@ -538,6 +547,15 @@ class WordSearchGenerator {
     let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
     let solutionDisplayGrid = useSolutionGrid ? solution : puzzle;
     this.renderGrid(this.solutionGrid, solutionDisplayGrid, "solution-cell", true);
+
+    // Always hide the solution grid and reset toggle button after generating a puzzle
+    this.solutionGrid.classList.add("hidden");
+    if (this.toggleSolutionBtn) {
+      this.toggleSolutionBtn.textContent = "Show Solution";
+    }
+
+    // Apply border preferences
+    this.updateGridBorders();
   }
 
   /**
@@ -561,13 +579,28 @@ class WordSearchGenerator {
       cellSize = parseInt(computedStyle.width) || 30; // fallback to 30px
     }
 
-    // Create SVG overlay
+    // Get container padding (assume uniform padding)
+    const containerStyle = window.getComputedStyle(this.solutionGrid);
+    const padLeft = parseInt(containerStyle.paddingLeft) || 0;
+    const padTop = parseInt(containerStyle.paddingTop) || 0;
+
+    // Calculate the maximum extension needed for capsules
+    const extension = cellSize * 0.7; // how much to extend past each end
+    const capsuleWidth = cellSize * 0.7;
+    const maxExtension = Math.max(extension, capsuleWidth / 2);
+
+    // Add padding to SVG dimensions to accommodate capsule extensions
+    const svgPadding = maxExtension + 10; // extra 10px buffer
+    const svgWidth = table.offsetWidth + svgPadding * 2;
+    const svgHeight = table.offsetHeight + svgPadding * 2;
+
+    // Create SVG overlay with padding
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("width", table.offsetWidth);
-    svg.setAttribute("height", table.offsetHeight);
+    svg.setAttribute("width", svgWidth);
+    svg.setAttribute("height", svgHeight);
     svg.style.position = "absolute";
-    svg.style.left = 0;
-    svg.style.top = 0;
+    svg.style.left = padLeft - svgPadding + "px";
+    svg.style.top = padTop - svgPadding + "px";
     svg.style.pointerEvents = "none";
     svg.classList.add("capsule-overlay");
     svg.style.zIndex = 10;
@@ -578,19 +611,17 @@ class WordSearchGenerator {
       const endRow = startRow + (length - 1) * dRow;
       const endCol = startCol + (length - 1) * dCol;
 
-      // Calculate center of start and end cells
-      const startX = startCol * cellSize + cellSize / 2;
-      const startY = startRow * cellSize + cellSize / 2;
-      const endX = endCol * cellSize + cellSize / 2;
-      const endY = endRow * cellSize + cellSize / 2;
+      // Calculate center of start and end cells, offset by SVG padding
+      const startX = startCol * cellSize + cellSize / 2 + svgPadding;
+      const startY = startRow * cellSize + cellSize / 2 + svgPadding;
+      const endX = endCol * cellSize + cellSize / 2 + svgPadding;
+      const endY = endRow * cellSize + cellSize / 2 + svgPadding;
 
       // Capsule parameters
       const dx = endX - startX;
       const dy = endY - startY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
-      // Extend capsule past the first and last letters
-      const extension = cellSize * 0.7; // how much to extend past each end
       const capsuleLength = dist + extension * 2;
       const capsuleWidth = cellSize * 0.7;
 
@@ -617,11 +648,11 @@ class WordSearchGenerator {
     // Position overlay absolutely over the table
     this.solutionGrid.style.position = "relative";
     svg.style.position = "absolute";
-    svg.style.left = 0;
-    svg.style.top = 0;
+    svg.style.left = padLeft - svgPadding + "px";
+    svg.style.top = padTop - svgPadding + "px";
     svg.style.zIndex = 10;
-    svg.style.width = table.offsetWidth + "px";
-    svg.style.height = table.offsetHeight + "px";
+    svg.style.width = svgWidth + "px";
+    svg.style.height = svgHeight + "px";
     this.solutionGrid.appendChild(svg);
   }
 
@@ -1193,18 +1224,32 @@ class WordSearchGenerator {
   }
 
   updateSolutionDisplay() {
-    // Re-render the solution grid and overlay based on current checkbox states
+    // Only update the contents, never touch the .hidden class
     if (this.currentSolution && this.currentPuzzle && this.wordListInput) {
       const words = this.getWordList();
       let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
       let solutionDisplayGrid = useSolutionGrid ? this.currentSolution : this.currentPuzzle;
       this.renderGrid(this.solutionGrid, solutionDisplayGrid, "solution-cell", true);
 
-      // If solution is visible and outline option is checked, render the capsule overlay
+      // Only render capsule overlay if solution is visible and outline option is checked
       if (!this.solutionGrid.classList.contains("hidden") && this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-        // Use a longer delay to ensure the grid is fully rendered and sized
         setTimeout(() => this.renderCapsuleOverlay(), 200);
       }
+    }
+  }
+
+  /**
+   * Update grid borders based on user preference
+   */
+  updateGridBorders() {
+    const showBorder = this.getGridBorderPreference();
+
+    if (showBorder) {
+      this.puzzleGrid.classList.add("with-border");
+      this.solutionGrid.classList.add("with-border");
+    } else {
+      this.puzzleGrid.classList.remove("with-border");
+      this.solutionGrid.classList.remove("with-border");
     }
   }
 }

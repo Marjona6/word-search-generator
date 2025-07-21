@@ -1,5 +1,10 @@
 /* Custom styles for the word search puzzle */
 
+/* Utility Classes */
+.hidden {
+  display: none !important;
+}
+
 /* Table Layout Styles */
 #puzzleGrid table,
 #solutionGrid table {
@@ -7,6 +12,21 @@
   table-layout: fixed;
   width: auto;
   height: auto;
+}
+
+/* Grid Container Styles */
+#puzzleGrid,
+#solutionGrid {
+  padding: 15px;
+  display: inline-block;
+  background-color: white;
+  overflow: visible; /* Allow capsule outlines to extend beyond container */
+}
+
+#puzzleGrid.with-border,
+#solutionGrid.with-border {
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
 }
 
 #puzzleGrid td,
@@ -192,6 +212,12 @@
     padding: 10px !important;
     margin-bottom: 15px !important;
   }
+
+  /* Ensure capsule overlays are visible in print */
+  .capsule-overlay {
+    display: block !important;
+    overflow: visible !important;
+  }
 }
 
 /* Loading animation */
@@ -262,4 +288,5 @@ textarea:focus {
   left: 0;
   z-index: 2;
   pointer-events: none;
+  overflow: visible; /* Ensure capsules are not clipped */
 }
