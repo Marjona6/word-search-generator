@@ -246,7 +246,12 @@ class WordSearchGenerator {
   placeWordSmart(grid, solution, word, directionVectors) {
     const size = grid.length;
     let best = [];
-    let bestOverlap = -1;
+    let bestScore = -1;
+
+    // Calculate current grid density
+    const filledCells = this.countFilledCells(grid);
+    const totalCells = size * size;
+    const density = filledCells / totalCells;
 
     // Shuffle directions for more randomness
     const shuffledDirections = [...directionVectors];
@@ -265,11 +270,25 @@ class WordSearchGenerator {
       for (const [row, col] of positions) {
         if (this.canPlaceWord(grid, word, row, col, [dRow, dCol])) {
           const overlap = this.countOverlap(grid, word, row, col, [dRow, dCol]);
+          const spacing = this.calculateSpacingScore(grid, word, row, col, [dRow, dCol]);
 
-          if (overlap > bestOverlap) {
+          // Score based on density: prefer overlap when dense, spacing when sparse
+          let score;
+          if (density < 0.3) {
+            // Low density: prefer spacing over overlap
+            score = spacing * 2 + overlap;
+          } else if (density < 0.6) {
+            // Medium density: balance spacing and overlap
+            score = spacing + overlap * 1.5;
+          } else {
+            // High density: prefer overlap to fit words
+            score = overlap * 2 + spacing * 0.5;
+          }
+
+          if (score > bestScore) {
             best = [[row, col, dRow, dCol]];
-            bestOverlap = overlap;
-          } else if (overlap === bestOverlap) {
+            bestScore = score;
+          } else if (score === bestScore) {
             best.push([row, col, dRow, dCol]);
           }
         }
@@ -302,6 +321,56 @@ class WordSearchGenerator {
     }
 
     return overlap;
+  }
+
+  /**
+   * Count filled cells in the grid
+   */
+  countFilledCells(grid) {
+    let count = 0;
+    for (let row = 0; row < grid.length; row++) {
+      for (let col = 0; col < grid[row].length; col++) {
+        if (grid[row][col] !== "") {
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Calculate spacing score - prefer positions that don't crowd existing words
+   */
+  calculateSpacingScore(grid, word, startRow, startCol, direction) {
+    const [dRow, dCol] = direction;
+    const size = grid.length;
+    let score = 0;
+
+    // Check each cell the word would occupy
+    for (let i = 0; i < word.length; i++) {
+      const row = startRow + i * dRow;
+      const col = startCol + i * dCol;
+
+      // Check surrounding cells for existing letters
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const checkRow = row + dr;
+          const checkCol = col + dc;
+
+          // Skip if out of bounds or the current word position
+          if (checkRow < 0 || checkRow >= size || checkCol < 0 || checkCol >= size) {
+            continue;
+          }
+
+          // If there's a letter nearby (but not part of the word), reduce score
+          if (grid[checkRow][checkCol] !== "" && (checkRow !== row || checkCol !== col)) {
+            score -= 1;
+          }
+        }
+      }
+    }
+
+    return score;
   }
 
   /**
