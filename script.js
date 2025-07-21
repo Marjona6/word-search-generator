@@ -43,7 +43,16 @@ class WordSearchGenerator {
     this.generateBtn.addEventListener("click", () => this.generatePuzzle());
     this.toggleSolutionBtn.addEventListener("click", () => this.toggleSolution());
     this.printBtn.addEventListener("click", () => this.printPuzzle());
-    this.downloadBtn.addEventListener("click", () => this.downloadPDF());
+
+    // Add debugging for download button
+    if (this.downloadBtn) {
+      this.downloadBtn.addEventListener("click", () => {
+        console.log("Download button clicked");
+        this.downloadPDF();
+      });
+    } else {
+      console.error("Download button not found");
+    }
     if (this.outlineFoundWordsCheckbox) {
       this.outlineFoundWordsCheckbox.addEventListener("change", () => this.updateSolutionDisplay());
     }
@@ -753,133 +762,60 @@ class WordSearchGenerator {
       return;
     }
 
-    // Create a print-friendly version
-    const printContent = document.createElement("div");
-    printContent.style.width = "100%";
-    printContent.style.backgroundColor = "white";
-    printContent.style.padding = "20px";
-    printContent.style.fontFamily = "Arial, sans-serif";
-    printContent.style.color = "black";
+    // Ensure solution is visible and capsule overlay is rendered for print
+    if (this.solutionGrid.classList.contains("hidden")) {
+      // Temporarily show solution and render capsule overlay
+      this.solutionGrid.classList.remove("hidden");
+      if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+        setTimeout(() => {
+          this.renderCapsuleOverlay();
+          // Wait for overlay to render before printing
+          setTimeout(() => window.print(), 200);
+        }, 100);
+        return; // Exit early, print will be called after overlay renders
+      }
+    } else if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+      // Solution is already visible, just ensure capsule overlay is rendered
+      setTimeout(() => {
+        this.renderCapsuleOverlay();
+        // Wait for overlay to render before printing
+        setTimeout(() => window.print(), 200);
+      }, 100);
+      return; // Exit early, print will be called after overlay renders
+    }
 
-    // Add title
-    const title = document.createElement("h1");
-    title.textContent = this.getPuzzleName();
-    title.style.textAlign = "center";
-    title.style.marginBottom = "20px";
-    title.style.fontSize = "24px";
-    printContent.appendChild(title);
-
-    // Add word list
-    const wordList = document.createElement("div");
-    wordList.style.marginBottom = "20px";
-    wordList.style.padding = "10px";
-    wordList.style.border = "1px solid black";
-    wordList.style.backgroundColor = "white";
-
-    const wordListTitle = document.createElement("h3");
-    wordListTitle.textContent = "Words to find:";
-    wordListTitle.style.marginBottom = "10px";
-    wordList.appendChild(wordListTitle);
-
-    const words = this.getWordList();
-    const wordText = document.createElement("p");
-    wordText.textContent = words.join(", ");
-    wordText.style.margin = "0";
-    wordList.appendChild(wordText);
-    printContent.appendChild(wordList);
-
-    // Add puzzle grid
-    const puzzleSection = document.createElement("div");
-    puzzleSection.style.marginBottom = "20px";
-
-    const puzzleTitle = document.createElement("h3");
-    puzzleTitle.textContent = "Puzzle:";
-    puzzleTitle.style.marginBottom = "10px";
-    puzzleSection.appendChild(puzzleTitle);
-
-    const puzzleTable = this.createTableForPDF(this.currentPuzzle, "puzzle-cell");
-    puzzleSection.appendChild(puzzleTable);
-    printContent.appendChild(puzzleSection);
-
-    // Add solution grid
-    const solutionSection = document.createElement("div");
-
-    const solutionTitle = document.createElement("h3");
-    solutionTitle.textContent = "Solution:";
-    solutionTitle.style.marginBottom = "10px";
-    solutionSection.appendChild(solutionTitle);
-
-    const solutionTable = this.createTableForPDF(this.currentSolution, "solution-cell");
-    solutionSection.appendChild(solutionTable);
-    printContent.appendChild(solutionSection);
-
-    // Create a new window for printing
-    const printWindow = window.open("", "_blank");
-    const showGridLines = this.getGridLinesPreference();
-    const borderStyle = showGridLines ? "1px solid black" : "none";
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Word Search Puzzle</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 0; 
-              padding: 20px; 
-              background: white; 
-              color: black; 
-            }
-            .puzzle-cell, .solution-cell {
-              width: 20px;
-              height: 20px;
-              border: ${borderStyle};
-              text-align: center;
-              vertical-align: middle;
-              font-size: 10px;
-              font-weight: bold;
-              background-color: white;
-              color: black;
-              padding: 0;
-            }
-            table {
-              border-collapse: collapse;
-              table-layout: fixed;
-              margin: 0 auto;
-            }
-            @media print {
-              body { margin: 0; padding: 10px; }
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent.outerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-
-    // Wait for content to load, then print
-    printWindow.onload = function () {
-      printWindow.print();
-      printWindow.close();
-    };
+    // Trigger the browser's print dialog on the current page
+    // The CSS @media print rules will handle the formatting
+    window.print();
   }
 
   /**
    * Download puzzle as PDF using jsPDF
    */
   downloadPDF() {
+    console.log("downloadPDF method called");
+
     // Ensure we have content to generate
     if (!this.currentPuzzle || !this.currentSolution) {
+      console.log("No puzzle data available");
       this.showError("No puzzle generated yet. Please generate a puzzle first.");
       return;
     }
 
+    console.log("Puzzle data available, starting PDF generation");
+
     try {
+      // Check if jsPDF is available
+      if (typeof window.jspdf === "undefined") {
+        console.error("jsPDF library not found");
+        this.showError("PDF library not loaded. Please refresh the page and try again.");
+        return;
+      }
+
       // Create new jsPDF document (8.5x11 inches)
       const { jsPDF } = window.jspdf;
+      console.log("jsPDF library loaded successfully");
+
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "in",
@@ -948,8 +884,10 @@ class WordSearchGenerator {
         doc.text("Solution:", margin, y);
         y += solutionLabelHeight;
 
-        // Draw solution grid
-        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize, true, this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked);
+        // Draw solution grid with user's display preferences
+        let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
+        let solutionDisplayGrid = useSolutionGrid ? this.currentSolution : this.currentPuzzle;
+        this.drawGrid(doc, solutionDisplayGrid, gridX, y, cellSize, true, this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked);
       } else {
         // Single page: Everything fits
         let y = margin + 0.5;
@@ -982,14 +920,19 @@ class WordSearchGenerator {
         doc.text("Solution:", margin, y);
         y += solutionLabelHeight;
 
-        // Draw solution grid
-        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize, true, this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked);
+        // Draw solution grid with user's display preferences
+        let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
+        let solutionDisplayGrid = useSolutionGrid ? this.currentSolution : this.currentPuzzle;
+        this.drawGrid(doc, solutionDisplayGrid, gridX, y, cellSize, true, this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked);
       }
 
       // Save the PDF
+      console.log("Attempting to save PDF...");
       doc.save("word-search-puzzle.pdf");
+      console.log("PDF saved successfully");
     } catch (error) {
       console.error("PDF generation error:", error);
+      console.error("Error details:", error.message, error.stack);
       this.showError("PDF generation failed. Please try printing instead.");
     }
   }
@@ -1070,6 +1013,8 @@ class WordSearchGenerator {
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
 
+    const colorFoundWords = this.colorFoundWordsCheckbox && this.colorFoundWordsCheckbox.checked;
+
     for (let row = 0; row < gridSize; row++) {
       for (let col = 0; col < gridSize; col++) {
         const x = startX + col * cellSize + cellSize / 2;
@@ -1079,6 +1024,14 @@ class WordSearchGenerator {
         if (isSolution && hideOther && !isFound) {
           letter = "";
         }
+
+        // Apply coloring for found words in solution
+        if (isSolution && isFound && colorFoundWords) {
+          doc.setTextColor(190, 24, 93); // Pink color (#be185d)
+        } else {
+          doc.setTextColor(0, 0, 0); // Black color
+        }
+
         // Center the text in the cell
         const textWidth = doc.getTextWidth(letter);
         const textX = x - textWidth / 2;
@@ -1095,7 +1048,7 @@ class WordSearchGenerator {
         const endRow = startRow + (length - 1) * dRow;
         const endCol = startCol + (length - 1) * dCol;
 
-        // Calculate center of start and end cells
+        // Calculate start and end points
         const startXc = startX + startCol * cellSize + cellSize / 2;
         const startYc = startY + startRow * cellSize + cellSize / 2;
         const endXc = startX + endCol * cellSize + cellSize / 2;
@@ -1106,26 +1059,71 @@ class WordSearchGenerator {
         const dy = endYc - startYc;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx);
-        const extension = cellSize * 0.4; // reduced from 0.7 to 0.4 - less extension past each end
+        const extension = cellSize * 0.4;
         const capsuleLength = dist + extension * 2;
         const capsuleWidth = cellSize * 0.7;
+        const r = capsuleWidth / 2;
 
         // Capsule center
         const cx = (startXc + endXc) / 2;
         const cy = (startYc + endYc) / 2;
 
-        // Save context and rotate
-        doc.saveGraphicsState();
+        // Calculate the unit direction vector
+        const ux = Math.cos(angle);
+        const uy = Math.sin(angle);
+        // Perpendicular vector
+        const px = -uy;
+        const py = ux;
+
+        // Endpoints of the capsule
+        const x1 = cx - (capsuleLength / 2 - r) * ux;
+        const y1 = cy - (capsuleLength / 2 - r) * uy;
+        const x2 = cx + (capsuleLength / 2 - r) * ux;
+        const y2 = cy + (capsuleLength / 2 - r) * uy;
+
+        // Four points for the rectangle body
+        const p1x = x1 + r * px;
+        const p1y = y1 + r * py;
+        const p2x = x2 + r * px;
+        const p2y = y2 + r * py;
+        const p3x = x2 - r * px;
+        const p3y = y2 - r * py;
+        const p4x = x1 - r * px;
+        const p4y = y1 - r * py;
+
         doc.setDrawColor(0);
         doc.setLineWidth(cellSize * 0.15);
         doc.setLineCap("round");
         doc.setLineJoin("round");
-        doc.setGState(new doc.GState({ opacity: 0.85 }));
-        doc.translate(cx, cy);
-        doc.rotate((angle * 180) / Math.PI);
-        // Draw rounded rectangle (capsule)
-        doc.roundedRect(-capsuleLength / 2, -capsuleWidth / 2, capsuleLength, capsuleWidth, capsuleWidth / 2, capsuleWidth / 2, "S");
-        doc.restoreGraphicsState();
+
+        // Draw capsule using jsPDF's line and arc methods
+        // Draw the straight line part
+        doc.line(p1x, p1y, p2x, p2y);
+        doc.line(p3x, p3y, p4x, p4y);
+
+        // Draw the end caps using small line segments to approximate arcs
+        // End cap at x2, y2
+        const segments = 8; // number of line segments to approximate the arc
+        for (let i = 0; i < segments; i++) {
+          const angle1 = angle - Math.PI / 2 + (i * Math.PI) / segments;
+          const angle2 = angle - Math.PI / 2 + ((i + 1) * Math.PI) / segments;
+          const x1_arc = x2 + r * Math.cos(angle1);
+          const y1_arc = y2 + r * Math.sin(angle1);
+          const x2_arc = x2 + r * Math.cos(angle2);
+          const y2_arc = y2 + r * Math.sin(angle2);
+          doc.line(x1_arc, y1_arc, x2_arc, y2_arc);
+        }
+
+        // End cap at x1, y1
+        for (let i = 0; i < segments; i++) {
+          const angle1 = angle + Math.PI / 2 + (i * Math.PI) / segments;
+          const angle2 = angle + Math.PI / 2 + ((i + 1) * Math.PI) / segments;
+          const x1_arc = x1 + r * Math.cos(angle1);
+          const y1_arc = y1 + r * Math.sin(angle1);
+          const x2_arc = x1 + r * Math.cos(angle2);
+          const y2_arc = y1 + r * Math.sin(angle2);
+          doc.line(x1_arc, y1_arc, x2_arc, y2_arc);
+        }
       }
     }
   }
@@ -1151,7 +1149,7 @@ class WordSearchGenerator {
   /**
    * Create a table element for PDF export
    */
-  createTableForPDF(grid, cellClass) {
+  createTableForPDF(grid, cellClass, isSolution = false) {
     const table = document.createElement("table");
     table.style.borderCollapse = "collapse";
     table.style.tableLayout = "fixed";
@@ -1160,6 +1158,18 @@ class WordSearchGenerator {
 
     const showGridLines = this.getGridLinesPreference();
     const borderStyle = showGridLines ? "1px solid black" : "none";
+    const colorFoundWords = this.colorFoundWordsCheckbox && this.colorFoundWordsCheckbox.checked;
+
+    // Build a set of all found word positions for fast lookup
+    let foundPositions = new Set();
+    if (isSolution && this.placedWordInfos) {
+      for (const info of this.placedWordInfos) {
+        const { startRow, startCol, dRow, dCol, length } = info;
+        for (let i = 0; i < length; i++) {
+          foundPositions.add(`${startRow + i * dRow},${startCol + i * dCol}`);
+        }
+      }
+    }
 
     for (let i = 0; i < grid.length; i++) {
       const row = document.createElement("tr");
@@ -1178,6 +1188,16 @@ class WordSearchGenerator {
         cell.style.color = "black";
         cell.style.padding = "0";
         cell.className = cellClass;
+
+        // Apply solution display options
+        if (isSolution) {
+          let isFound = foundPositions.has(`${i},${j}`);
+          if (isFound && colorFoundWords) {
+            cell.style.color = "#be185d"; // pink color for found words
+            cell.style.fontWeight = "bold";
+          }
+        }
+
         row.appendChild(cell);
       }
 

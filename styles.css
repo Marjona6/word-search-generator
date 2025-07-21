@@ -158,11 +158,24 @@
   #printBtn,
   #downloadBtn,
   #toggleSolution,
-  .bg-white,
-  .shadow-md,
-  .rounded-lg,
   header {
     display: none !important;
+  }
+
+  /* Show output section in print */
+  #outputSection {
+    display: block !important;
+  }
+
+  /* Remove shadows and backgrounds for print, but keep content visible */
+  .bg-white {
+    background-color: white !important;
+  }
+  .shadow-md {
+    box-shadow: none !important;
+  }
+  .rounded-lg {
+    border-radius: 0 !important;
   }
 
   /* Show solution by default when printing */
@@ -196,6 +209,11 @@
     table-layout: fixed !important;
   }
 
+  /* Show solution grid in print */
+  #solutionGrid {
+    display: block !important;
+  }
+
   /* Layout for print */
   #puzzleContainer {
     display: block !important;
@@ -213,9 +231,17 @@
     margin-bottom: 15px !important;
   }
 
-  /* Ensure capsule overlays are visible in print */
+  /* Ensure capsule overlays are visible and properly positioned in print */
   .capsule-overlay {
     display: block !important;
+    overflow: visible !important;
+    position: absolute !important;
+    z-index: 10 !important;
+    pointer-events: none !important;
+    /* Remove forced top: 0 and left: 0 to allow proper positioning */
+  }
+  #solutionGrid {
+    position: relative !important;
     overflow: visible !important;
   }
 }

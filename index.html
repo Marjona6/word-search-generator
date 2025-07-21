@@ -7,6 +7,16 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+      // Ensure jsPDF is available globally
+      window.addEventListener("load", function () {
+        if (typeof window.jspdf === "undefined") {
+          console.error("jsPDF failed to load");
+        } else {
+          console.log("jsPDF loaded successfully");
+        }
+      });
+    </script>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body class="bg-gray-50 min-h-screen">
