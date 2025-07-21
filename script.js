@@ -585,7 +585,7 @@ class WordSearchGenerator {
     const padTop = parseInt(containerStyle.paddingTop) || 0;
 
     // Calculate the maximum extension needed for capsules
-    const extension = cellSize * 0.7; // how much to extend past each end
+    const extension = cellSize * 0.4; // reduced from 0.7 to 0.4 - less extension past each end
     const capsuleWidth = cellSize * 0.7;
     const maxExtension = Math.max(extension, capsuleWidth / 2);
 
@@ -1106,7 +1106,7 @@ class WordSearchGenerator {
         const dy = endYc - startYc;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx);
-        const extension = cellSize * 0.7; // how much to extend past each end
+        const extension = cellSize * 0.4; // reduced from 0.7 to 0.4 - less extension past each end
         const capsuleLength = dist + extension * 2;
         const capsuleWidth = cellSize * 0.7;
 
