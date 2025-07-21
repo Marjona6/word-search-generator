@@ -67,6 +67,11 @@
   color: white;
 }
 
+.solution-cell.found-pink {
+  color: #be185d !important;
+  font-weight: bold;
+}
+
 /* Responsive grid sizing */
 @media (max-width: 768px) {
   .puzzle-cell,
@@ -249,4 +254,12 @@ textarea:focus {
 
 #wordListDisplay::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
+}
+
+.capsule-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
 }

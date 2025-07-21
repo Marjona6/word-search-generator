@@ -9,6 +9,7 @@ class WordSearchGenerator {
     this.bindEvents();
     this.currentPuzzle = null;
     this.currentSolution = null;
+    this.placedWordInfos = [];
   }
 
   initializeElements() {
@@ -22,6 +23,9 @@ class WordSearchGenerator {
     this.reverseCheckbox = document.getElementById("reverse");
     this.showGridLinesCheckbox = document.getElementById("showGridLines");
     this.generateBtn = document.getElementById("generateBtn");
+    this.outlineFoundWordsCheckbox = document.getElementById("outlineFoundWords");
+    this.colorFoundWordsCheckbox = document.getElementById("colorFoundWords");
+    this.hideOtherSolutionLettersCheckbox = document.getElementById("hideOtherSolutionLetters");
 
     // Output elements
     this.outputSection = document.getElementById("outputSection");
@@ -39,6 +43,15 @@ class WordSearchGenerator {
     this.toggleSolutionBtn.addEventListener("click", () => this.toggleSolution());
     this.printBtn.addEventListener("click", () => this.printPuzzle());
     this.downloadBtn.addEventListener("click", () => this.downloadPDF());
+    if (this.outlineFoundWordsCheckbox) {
+      this.outlineFoundWordsCheckbox.addEventListener("change", () => this.updateSolutionDisplay());
+    }
+    if (this.colorFoundWordsCheckbox) {
+      this.colorFoundWordsCheckbox.addEventListener("change", () => this.updateSolutionDisplay());
+    }
+    if (this.hideOtherSolutionLettersCheckbox) {
+      this.hideOtherSolutionLettersCheckbox.addEventListener("change", () => this.updateSolutionDisplay());
+    }
   }
 
   /**
@@ -59,6 +72,15 @@ class WordSearchGenerator {
         return;
       }
 
+      // Set hideOtherSolutionLetters default based on grid lines
+      if (this.hideOtherSolutionLettersCheckbox) {
+        if (this.getGridLinesPreference()) {
+          this.hideOtherSolutionLettersCheckbox.checked = true;
+        } else {
+          this.hideOtherSolutionLettersCheckbox.checked = false;
+        }
+      }
+
       // Generate puzzle
       const result = this.createPuzzle(words, size, directions);
 
@@ -67,6 +89,8 @@ class WordSearchGenerator {
         this.currentSolution = result.solution;
         this.displayPuzzle(result.puzzle, result.solution, words);
         this.showOutput();
+        // Ensure the solution display is updated after setting the checkbox
+        this.updateSolutionDisplay();
       } else {
         this.showError(result.error);
       }
@@ -90,7 +114,6 @@ class WordSearchGenerator {
       .map((word) => word.trim())
       .filter((word) => word.length > 0)
       .map((word) => word.replace(/[^A-Za-z]/g, "").toUpperCase()) // Remove non-letters and convert to uppercase
-      .filter((word) => word.length > 0) // Remove words that became empty after filtering
       .filter((word, index, arr) => arr.indexOf(word) === index); // Remove duplicates
   }
 
@@ -161,6 +184,7 @@ class WordSearchGenerator {
     let bestPlaced = [];
     let bestFailed = words;
     let bestScore = -1;
+    let bestWordInfos = [];
 
     for (let attempt = 0; attempt < 10; attempt++) {
       try {
@@ -172,6 +196,7 @@ class WordSearchGenerator {
           bestSolution = result.solution;
           bestPlaced = result.placedWords;
           bestFailed = result.failedWords;
+          bestWordInfos = result.placedWordInfos;
         }
 
         if (result.failedWords.length === 0) {
@@ -183,12 +208,14 @@ class WordSearchGenerator {
     }
 
     if (bestGrid) {
+      this.placedWordInfos = bestWordInfos;
       return {
         success: true,
         puzzle: bestGrid,
         solution: bestSolution,
         placedWords: bestPlaced,
         failedWords: bestFailed,
+        placedWordInfos: bestWordInfos,
       };
     }
 
@@ -209,22 +236,28 @@ class WordSearchGenerator {
 
     const placedWords = [];
     const failedWords = [];
+    const placedWordInfos = [];
 
     // Sort words by length (longest first) for better placement
     const wordsByLength = [...words].sort((a, b) => b.length - a.length);
 
     for (const word of wordsByLength) {
       let placed = false;
+      let placementInfo = null;
 
       for (let attempt = 0; attempt < attemptsPerWord; attempt++) {
-        if (this.placeWordSmart(grid, solution, word, directionVectors)) {
+        const info = this.placeWordSmart(grid, solution, word, directionVectors);
+        if (info) {
           placedWords.push(word);
           placed = true;
+          placementInfo = info;
           break;
         }
       }
 
-      if (!placed) {
+      if (placed && placementInfo) {
+        placedWordInfos.push(placementInfo);
+      } else if (!placed) {
         failedWords.push(word);
       }
     }
@@ -237,6 +270,7 @@ class WordSearchGenerator {
       solution: solution,
       placedWords: placedWords,
       failedWords: failedWords,
+      placedWordInfos: placedWordInfos,
     };
   }
 
@@ -298,10 +332,17 @@ class WordSearchGenerator {
     if (best.length > 0) {
       const [row, col, dRow, dCol] = best[Math.floor(Math.random() * best.length)];
       this.placeWordAt(grid, solution, word, row, col, [dRow, dCol]);
-      return true;
+      return {
+        word,
+        startRow: row,
+        startCol: col,
+        dRow,
+        dCol,
+        length: word.length,
+      };
     }
 
-    return false;
+    return null;
   }
 
   /**
@@ -493,20 +534,118 @@ class WordSearchGenerator {
     // Display puzzle grid
     this.renderGrid(this.puzzleGrid, puzzle, "puzzle-cell");
 
-    // Display solution grid
-    this.renderGrid(this.solutionGrid, solution, "solution-cell");
+    // Determine which grid to use for the solution display
+    let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
+    let solutionDisplayGrid = useSolutionGrid ? solution : puzzle;
+    this.renderGrid(this.solutionGrid, solutionDisplayGrid, "solution-cell", true);
+  }
+
+  /**
+   * Render SVG capsule overlays for found words in the solution grid
+   */
+  renderCapsuleOverlay() {
+    // Remove any existing overlay
+    const oldOverlay = this.solutionGrid.querySelector(".capsule-overlay");
+    if (oldOverlay) oldOverlay.remove();
+
+    const table = this.solutionGrid.querySelector("table");
+    if (!table) return;
+
+    const cell = table.querySelector("td");
+    if (!cell) return;
+    const cellSize = cell.offsetWidth; // assumes square cells
+
+    // Create SVG overlay
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", table.offsetWidth);
+    svg.setAttribute("height", table.offsetHeight);
+    svg.style.position = "absolute";
+    svg.style.left = 0;
+    svg.style.top = 0;
+    svg.style.pointerEvents = "none";
+    svg.classList.add("capsule-overlay");
+    svg.style.zIndex = 10;
+
+    // Draw a capsule for each word
+    for (const info of this.placedWordInfos) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate center of start and end cells
+      const startX = startCol * cellSize + cellSize / 2;
+      const startY = startRow * cellSize + cellSize / 2;
+      const endX = endCol * cellSize + cellSize / 2;
+      const endY = endRow * cellSize + cellSize / 2;
+
+      // Capsule parameters
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      // Extend capsule past the first and last letters
+      const extension = cellSize * 0.7; // how much to extend past each end
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = cellSize * 0.7;
+
+      // Capsule center
+      const cx = (startX + endX) / 2;
+      const cy = (startY + endY) / 2;
+
+      // Draw rounded rectangle (capsule)
+      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+      rect.setAttribute("x", cx - capsuleLength / 2);
+      rect.setAttribute("y", cy - capsuleWidth / 2);
+      rect.setAttribute("width", capsuleLength);
+      rect.setAttribute("height", capsuleWidth);
+      rect.setAttribute("rx", capsuleWidth / 2);
+      rect.setAttribute("ry", capsuleWidth / 2);
+      rect.setAttribute("fill", "none");
+      rect.setAttribute("stroke", "#000"); // black outline
+      rect.setAttribute("stroke-width", cellSize * 0.15);
+      rect.setAttribute("opacity", "0.85");
+      rect.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+      svg.appendChild(rect);
+    }
+
+    // Position overlay absolutely over the table
+    this.solutionGrid.style.position = "relative";
+    svg.style.position = "absolute";
+    svg.style.left = 0;
+    svg.style.top = 0;
+    svg.style.zIndex = 10;
+    svg.style.width = table.offsetWidth + "px";
+    svg.style.height = table.offsetHeight + "px";
+    this.solutionGrid.appendChild(svg);
   }
 
   /**
    * Render a grid as HTML
+   * @param {HTMLElement} container
+   * @param {string[][]} grid
+   * @param {string} cellClass
+   * @param {boolean} isSolution
    */
-  renderGrid(container, grid, cellClass) {
+  renderGrid(container, grid, cellClass, isSolution = false) {
     container.innerHTML = "";
 
     const table = document.createElement("table");
     table.style.borderCollapse = "collapse";
 
     const showGridLines = this.getGridLinesPreference();
+    const colorFoundWords = this.colorFoundWordsCheckbox && this.colorFoundWordsCheckbox.checked;
+    // hideOther is no longer needed here
+
+    // Build a set of all found word positions for fast lookup
+    let foundPositions = new Set();
+    if (isSolution && this.placedWordInfos) {
+      for (const info of this.placedWordInfos) {
+        const { startRow, startCol, dRow, dCol, length } = info;
+        for (let i = 0; i < length; i++) {
+          foundPositions.add(`${startRow + i * dRow},${startCol + i * dCol}`);
+        }
+      }
+    }
 
     for (let i = 0; i < grid.length; i++) {
       const row = document.createElement("tr");
@@ -514,9 +653,21 @@ class WordSearchGenerator {
       for (let j = 0; j < grid[i].length; j++) {
         const cell = document.createElement("td");
         cell.className = cellClass;
-        cell.textContent = grid[i][j];
         cell.dataset.row = i;
         cell.dataset.col = j;
+        let isFound = foundPositions.has(`${i},${j}`);
+        if (isSolution) {
+          if (isFound) {
+            if (colorFoundWords) {
+              cell.classList.add("found-pink");
+            } else {
+              cell.classList.remove("found-pink");
+            }
+          } else {
+            cell.classList.remove("found-pink");
+          }
+        }
+        cell.textContent = grid[i][j];
 
         // Apply grid lines based on user preference
         if (showGridLines) {
@@ -544,6 +695,10 @@ class WordSearchGenerator {
     if (solutionGrid.classList.contains("hidden")) {
       solutionGrid.classList.remove("hidden");
       toggleBtn.textContent = "Hide Solution";
+      // Render overlay after a short delay to ensure grid is fully rendered
+      if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+        setTimeout(() => this.renderCapsuleOverlay(), 100);
+      }
     } else {
       solutionGrid.classList.add("hidden");
       toggleBtn.textContent = "Show Solution";
@@ -756,7 +911,7 @@ class WordSearchGenerator {
         y += solutionLabelHeight;
 
         // Draw solution grid
-        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize);
+        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize, true, this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked);
       } else {
         // Single page: Everything fits
         let y = margin + 0.5;
@@ -790,7 +945,7 @@ class WordSearchGenerator {
         y += solutionLabelHeight;
 
         // Draw solution grid
-        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize);
+        this.drawGrid(doc, this.currentSolution, gridX, y, cellSize, true, this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked);
       }
 
       // Save the PDF
@@ -840,7 +995,7 @@ class WordSearchGenerator {
   /**
    * Draw a grid for the PDF
    */
-  drawGrid(doc, grid, startX, startY, cellSize) {
+  drawGrid(doc, grid, startX, startY, cellSize, isSolution = false, hideOther = false) {
     const gridSize = grid.length;
     const showGridLines = this.getGridLinesPreference();
 
@@ -862,6 +1017,17 @@ class WordSearchGenerator {
       }
     }
 
+    // Build a set of all found word positions for fast lookup
+    let foundPositions = new Set();
+    if (isSolution && this.placedWordInfos) {
+      for (const info of this.placedWordInfos) {
+        const { startRow, startCol, dRow, dCol, length } = info;
+        for (let i = 0; i < length; i++) {
+          foundPositions.add(`${startRow + i * dRow},${startCol + i * dCol}`);
+        }
+      }
+    }
+
     // Add letters
     doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
@@ -870,13 +1036,58 @@ class WordSearchGenerator {
       for (let col = 0; col < gridSize; col++) {
         const x = startX + col * cellSize + cellSize / 2;
         const y = startY + row * cellSize + cellSize / 2 + 0.05; // Small offset for centering
-        const letter = grid[row][col];
-
+        let letter = grid[row][col];
+        let isFound = foundPositions.has(`${row},${col}`);
+        if (isSolution && hideOther && !isFound) {
+          letter = "";
+        }
         // Center the text in the cell
         const textWidth = doc.getTextWidth(letter);
         const textX = x - textWidth / 2;
+        if (letter) {
+          doc.text(letter, textX, y);
+        }
+      }
+    }
 
-        doc.text(letter, textX, y);
+    // Draw capsule outlines for found words in the solution grid (PDF)
+    if (isSolution && this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked && this.placedWordInfos) {
+      for (const info of this.placedWordInfos) {
+        const { startRow, startCol, dRow, dCol, length } = info;
+        const endRow = startRow + (length - 1) * dRow;
+        const endCol = startCol + (length - 1) * dCol;
+
+        // Calculate center of start and end cells
+        const startXc = startX + startCol * cellSize + cellSize / 2;
+        const startYc = startY + startRow * cellSize + cellSize / 2;
+        const endXc = startX + endCol * cellSize + cellSize / 2;
+        const endYc = startY + endRow * cellSize + cellSize / 2;
+
+        // Capsule parameters
+        const dx = endXc - startXc;
+        const dy = endYc - startYc;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        const extension = cellSize * 0.7; // how much to extend past each end
+        const capsuleLength = dist + extension * 2;
+        const capsuleWidth = cellSize * 0.7;
+
+        // Capsule center
+        const cx = (startXc + endXc) / 2;
+        const cy = (startYc + endYc) / 2;
+
+        // Save context and rotate
+        doc.saveGraphicsState();
+        doc.setDrawColor(0);
+        doc.setLineWidth(cellSize * 0.15);
+        doc.setLineCap("round");
+        doc.setLineJoin("round");
+        doc.setGState(new doc.GState({ opacity: 0.85 }));
+        doc.translate(cx, cy);
+        doc.rotate((angle * 180) / Math.PI);
+        // Draw rounded rectangle (capsule)
+        doc.roundedRect(-capsuleLength / 2, -capsuleWidth / 2, capsuleLength, capsuleWidth, capsuleWidth / 2, capsuleWidth / 2, "S");
+        doc.restoreGraphicsState();
       }
     }
   }
@@ -972,6 +1183,16 @@ class WordSearchGenerator {
 
   hideError() {
     this.errorMessage.classList.add("hidden");
+  }
+
+  updateSolutionDisplay() {
+    // Re-render the solution grid and overlay based on current checkbox states
+    if (this.currentSolution && this.currentPuzzle && this.wordListInput) {
+      const words = this.getWordList();
+      let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
+      let solutionDisplayGrid = useSolutionGrid ? this.currentSolution : this.currentPuzzle;
+      this.renderGrid(this.solutionGrid, solutionDisplayGrid, "solution-cell", true);
+    }
   }
 }
 
