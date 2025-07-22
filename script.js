@@ -10,6 +10,7 @@ class WordSearchGenerator {
     this.currentPuzzle = null;
     this.currentSolution = null;
     this.placedWordInfos = [];
+    this.handlePrintMode();
   }
 
   initializeElements() {
@@ -565,104 +566,268 @@ class WordSearchGenerator {
 
     // Apply border preferences
     this.updateGridBorders();
+
+    // Render ALL capsules with viewBox if needed
+    if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+      setTimeout(() => {
+        const table = this.solutionGrid.querySelector("table");
+        if (table) {
+          this.renderAllCapsulesWithViewBox(this.solutionGrid, table);
+        }
+      }, 200);
+    }
   }
 
   /**
    * Render SVG capsule overlays for found words in the solution grid
    */
   renderCapsuleOverlay() {
-    // Remove any existing overlay
-    const oldOverlay = this.solutionGrid.querySelector(".capsule-overlay");
-    if (oldOverlay) oldOverlay.remove();
+    console.log("renderCapsuleOverlay called");
 
     const table = this.solutionGrid.querySelector("table");
-    if (!table) return;
-
+    if (!table) {
+      console.log("No table found in solutionGrid");
+      return;
+    }
     const cell = table.querySelector("td");
-    if (!cell) return;
-
-    // Get cell size, with fallback to CSS computed style
-    let cellSize = cell.offsetWidth;
-    if (cellSize === 0) {
-      const computedStyle = window.getComputedStyle(cell);
-      cellSize = parseInt(computedStyle.width) || 30; // fallback to 30px
+    if (!cell) {
+      console.log("No cell found in table");
+      return;
     }
 
-    // Get container padding (assume uniform padding)
-    const containerStyle = window.getComputedStyle(this.solutionGrid);
-    const padLeft = parseInt(containerStyle.paddingLeft) || 0;
-    const padTop = parseInt(containerStyle.paddingTop) || 0;
+    // Get cell size from computed CSS style
+    const computedStyle = window.getComputedStyle(cell);
+    const cellSize = parseInt(computedStyle.width) || 30;
+    const computedCellHeight = parseInt(computedStyle.height) || cellSize;
+    const gridSize = this.currentPuzzle ? this.currentPuzzle.length : 15;
 
-    // Calculate the maximum extension needed for capsules
-    const extension = cellSize * 0.4; // reduced from 0.7 to 0.4 - less extension past each end
-    const capsuleWidth = cellSize * 0.7;
-    const maxExtension = Math.max(extension, capsuleWidth / 2);
+    console.log(`Cell size: ${cellSize}, Cell height: ${computedCellHeight}`);
 
-    // Add padding to SVG dimensions to accommodate capsule extensions
-    const svgPadding = maxExtension + 10; // extra 10px buffer
-    const svgWidth = table.offsetWidth + svgPadding * 2;
-    const svgHeight = table.offsetHeight + svgPadding * 2;
+    // Remove any existing overlay
+    const oldOverlay = table.querySelector(".capsule-overlay");
+    if (oldOverlay) {
+      oldOverlay.remove();
+    }
 
-    // Create SVG overlay with padding
+    // Set SVG size to match the table
+    const svgWidth = table.offsetWidth;
+    const svgHeight = table.offsetHeight;
+
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", svgWidth);
     svg.setAttribute("height", svgHeight);
     svg.style.position = "absolute";
-    svg.style.left = padLeft - svgPadding + "px";
-    svg.style.top = padTop - svgPadding + "px";
+    svg.style.left = "0px";
+    svg.style.top = "0px";
     svg.style.pointerEvents = "none";
     svg.classList.add("capsule-overlay");
     svg.style.zIndex = 10;
 
-    // Draw a capsule for each word
+    // Make table position: relative to contain the overlay
+    table.style.position = "relative";
+
+    // For each word, calculate capsule position using simple row/column math
     for (const info of this.placedWordInfos) {
       const { startRow, startCol, dRow, dCol, length } = info;
       const endRow = startRow + (length - 1) * dRow;
       const endCol = startCol + (length - 1) * dCol;
 
-      // Calculate center of start and end cells, offset by SVG padding
-      const startX = startCol * cellSize + cellSize / 2 + svgPadding;
-      const startY = startRow * cellSize + cellSize / 2 + svgPadding;
-      const endX = endCol * cellSize + cellSize / 2 + svgPadding;
-      const endY = endRow * cellSize + cellSize / 2 + svgPadding;
+      // Calculate center of start and end cells using simple math
+      const startX = startCol * cellSize + cellSize / 2;
+      const startY = startRow * cellSize + cellSize / 2;
+      const endX = endCol * cellSize + cellSize / 2;
+      const endY = endRow * cellSize + cellSize / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  Calculated positions: start(${startX},${startY}) end(${endX},${endY})`);
 
       // Capsule parameters
+      const extension = computedCellHeight * 0.4;
       const dx = endX - startX;
       const dy = endY - startY;
       const dist = Math.sqrt(dx * dx + dy * dy);
       const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
       const capsuleLength = dist + extension * 2;
-      const capsuleWidth = cellSize * 0.7;
-
-      // Capsule center
+      const capsuleWidth = computedCellHeight * 0.7;
       const cx = (startX + endX) / 2;
       const cy = (startY + endY) / 2;
 
-      // Draw rounded rectangle (capsule)
-      const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-      rect.setAttribute("x", cx - capsuleLength / 2);
-      rect.setAttribute("y", cy - capsuleWidth / 2);
-      rect.setAttribute("width", capsuleLength);
-      rect.setAttribute("height", capsuleWidth);
-      rect.setAttribute("rx", capsuleWidth / 2);
-      rect.setAttribute("ry", capsuleWidth / 2);
-      rect.setAttribute("fill", "none");
-      rect.setAttribute("stroke", "#000"); // black outline
-      rect.setAttribute("stroke-width", cellSize * 0.15);
-      rect.setAttribute("opacity", "0.85");
-      rect.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
-      svg.appendChild(rect);
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const radius = capsuleWidth / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${cx - halfLength + radius} ${cy - radius}`,
+        // Top line
+        `L ${cx + halfLength - radius} ${cy - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${cx + halfLength - radius} ${cy + radius}`,
+        // Bottom line
+        `L ${cx - halfLength + radius} ${cy + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${cx - halfLength + radius} ${cy - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", computedCellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+      svg.appendChild(path);
     }
 
-    // Position overlay absolutely over the table
-    this.solutionGrid.style.position = "relative";
+    // Attach SVG overlay to the table
+    table.style.position = "relative";
     svg.style.position = "absolute";
-    svg.style.left = padLeft - svgPadding + "px";
-    svg.style.top = padTop - svgPadding + "px";
-    svg.style.zIndex = 10;
+    svg.style.left = "0px";
+    svg.style.top = "0px";
     svg.style.width = svgWidth + "px";
     svg.style.height = svgHeight + "px";
-    this.solutionGrid.appendChild(svg);
+    table.appendChild(svg);
+  }
+
+  /**
+   * Render capsule outlines using a canvas overlay
+   */
+  renderCapsuleCanvasOverlay() {
+    console.log("renderCapsuleCanvasOverlay called");
+
+    // Remove any existing canvas overlay
+    const oldCanvas = this.solutionGrid.querySelector(".capsule-canvas-overlay");
+    if (oldCanvas) oldCanvas.remove();
+
+    const table = this.solutionGrid.querySelector("table");
+    if (!table) {
+      console.log("No table found in solutionGrid");
+      return;
+    }
+    const cell = table.querySelector("td");
+    if (!cell) {
+      console.log("No cell found in table");
+      return;
+    }
+
+    // Wait for table to be fully rendered
+    if (table.offsetWidth === 0 || table.offsetHeight === 0) {
+      console.log("Table not ready, retrying canvas overlay in 100ms");
+      setTimeout(() => this.renderCapsuleCanvasOverlay(), 100);
+      return;
+    }
+
+    // Get cell size and grid size
+    const cellSize = cell.offsetWidth;
+    const cellHeight = cell.offsetHeight;
+    const gridSize = this.currentPuzzle ? this.currentPuzzle.length : 15;
+
+    console.log(`Cell size: ${cellSize}, Cell height: ${cellHeight}, Grid size: ${gridSize}`);
+    console.log(`Table size: ${table.offsetWidth}x${table.offsetHeight}`);
+
+    // Create SVG overlay instead of canvas for better print compatibility
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.setAttribute("viewBox", `0 0 ${table.offsetWidth} ${table.offsetHeight}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.style.position = "absolute";
+    svg.style.left = "0px";
+    svg.style.top = "0px";
+    svg.style.pointerEvents = "none";
+    svg.classList.add("capsule-canvas-overlay");
+    svg.style.zIndex = 10;
+
+    // Make table position: relative to contain the overlay
+    table.style.position = "relative";
+
+    console.log(`SVG size: ${table.offsetWidth}x${table.offsetHeight}`);
+    console.log(`Placed word infos:`, this.placedWordInfos);
+
+    for (const info of this.placedWordInfos) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate center of start and end cells
+      const startX = startCol * cellSize + cellSize / 2;
+      const startY = startRow * cellHeight + cellHeight / 2;
+      const endX = endCol * cellSize + cellSize / 2;
+      const endY = endRow * cellHeight + cellHeight / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  Calculated positions: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const extension = cellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = cellHeight * 0.7;
+      const radius = capsuleWidth / 2;
+
+      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const centerX = (startX + endX) / 2;
+      const centerY = (startY + endY) / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Top line
+        `L ${centerX + halfLength - radius} ${centerY - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${centerX + halfLength - radius} ${centerY + radius}`,
+        // Bottom line
+        `L ${centerX - halfLength + radius} ${centerY + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", cellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${centerX} ${centerY})`);
+      svg.appendChild(path);
+    }
+
+    table.appendChild(svg);
+    console.log("SVG overlay added to table");
+  }
+
+  /**
+   * Draw a rounded rectangle (capsule) on canvas
+   */
+  _drawCapsule(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.arcTo(x + w, y, x + w, y + r, r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+    ctx.lineTo(x + r, y + h);
+    ctx.arcTo(x, y + h, x, y + h - r, r);
+    ctx.lineTo(x, y + r);
+    ctx.arcTo(x, y, x + r, y, r);
+    ctx.closePath();
+    ctx.stroke();
   }
 
   /**
@@ -680,15 +845,44 @@ class WordSearchGenerator {
 
     const showGridLines = this.getGridLinesPreference();
     const colorFoundWords = this.colorFoundWordsCheckbox && this.colorFoundWordsCheckbox.checked;
-    // hideOther is no longer needed here
 
-    // Build a set of all found word positions for fast lookup
-    let foundPositions = new Set();
+    // Add class to table for print CSS to respect grid line preference
+    if (showGridLines) {
+      table.classList.add("show-grid-lines");
+    } else {
+      table.classList.remove("show-grid-lines");
+    }
+
+    // Build a map of all found word positions and their info
+    let foundPositions = new Map();
+    let diagonalCapsules = [];
     if (isSolution && this.placedWordInfos) {
       for (const info of this.placedWordInfos) {
         const { startRow, startCol, dRow, dCol, length } = info;
+        // Diagonal detection
+        const isDiagonal = Math.abs(dRow) === 1 && Math.abs(dCol) === 1;
+        if (isDiagonal) {
+          diagonalCapsules.push(info);
+        }
         for (let i = 0; i < length; i++) {
-          foundPositions.add(`${startRow + i * dRow},${startCol + i * dCol}`);
+          const row = startRow + i * dRow;
+          const col = startCol + i * dCol;
+          let posKey = `${row},${col}`;
+          let posInfo = foundPositions.get(posKey) || {};
+          posInfo.isCapsule = true;
+          // Mark start/end
+          if (i === 0) {
+            posInfo.isCapsuleStart = true;
+            posInfo.capsuleDir = `${dRow},${dCol}`;
+          }
+          if (i === length - 1) {
+            posInfo.isCapsuleEnd = true;
+            posInfo.capsuleDir = `${dRow},${dCol}`;
+          }
+          // Mark direction for all
+          posInfo.capsuleDir = `${dRow},${dCol}`;
+          posInfo.isDiagonal = isDiagonal;
+          foundPositions.set(posKey, posInfo);
         }
       }
     }
@@ -701,7 +895,9 @@ class WordSearchGenerator {
         cell.className = cellClass;
         cell.dataset.row = i;
         cell.dataset.col = j;
-        let isFound = foundPositions.has(`${i},${j}`);
+        let posKey = `${i},${j}`;
+        let posInfo = foundPositions.get(posKey);
+        let isFound = !!posInfo;
         if (isSolution) {
           if (isFound) {
             if (colorFoundWords) {
@@ -729,6 +925,233 @@ class WordSearchGenerator {
     }
 
     container.appendChild(table);
+
+    // Add SVG overlays for ALL capsules (horizontal, vertical, and diagonal)
+    if (isSolution && this.placedWordInfos && this.placedWordInfos.length > 0 && this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+      this.renderAllCapsulesWithViewBox(container, table);
+    }
+  }
+
+  /**
+   * Test Hypothesis 1: Use actual rendered cell sizes instead of computed styles
+   */
+  renderDiagonalCapsuleSVGsWithBorderOffset(container, table, diagonalCapsules) {
+    console.log("Testing Hypothesis 2: Accounting for table borders and padding");
+
+    // Remove any existing diagonal overlays
+    const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    const cell = table.querySelector("td");
+    if (!cell) return;
+
+    // Get table styles to account for borders and padding
+    const tableStyle = window.getComputedStyle(table);
+    const cellStyle = window.getComputedStyle(cell);
+
+    const tableBorderLeft = parseInt(tableStyle.borderLeftWidth) || 0;
+    const tableBorderTop = parseInt(tableStyle.borderTopWidth) || 0;
+    const tablePaddingLeft = parseInt(tableStyle.paddingLeft) || 0;
+    const tablePaddingTop = parseInt(tableStyle.paddingTop) || 0;
+
+    const cellBorderLeft = parseInt(cellStyle.borderLeftWidth) || 0;
+    const cellBorderTop = parseInt(cellStyle.borderTopWidth) || 0;
+    const cellPaddingLeft = parseInt(cellStyle.paddingLeft) || 0;
+    const cellPaddingTop = parseInt(cellStyle.paddingTop) || 0;
+
+    console.log("Border and padding offsets:", {
+      table: { borderLeft: tableBorderLeft, borderTop: tableBorderTop, paddingLeft: tablePaddingLeft, paddingTop: tablePaddingTop },
+      cell: { borderLeft: cellBorderLeft, borderTop: cellBorderTop, paddingLeft: cellPaddingLeft, paddingTop: cellPaddingTop },
+    });
+
+    const actualCellWidth = cell.offsetWidth;
+    const actualCellHeight = cell.offsetHeight;
+
+    // Calculate total offset from table origin
+    const totalOffsetX = tableBorderLeft + tablePaddingLeft + cellBorderLeft + cellPaddingLeft;
+    const totalOffsetY = tableBorderTop + tablePaddingTop + cellBorderTop + cellPaddingTop;
+
+    console.log("Total offsets:", { x: totalOffsetX, y: totalOffsetY });
+
+    for (const info of diagonalCapsules) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate center of start and end cells with border/padding offset
+      const startX = totalOffsetX + startCol * actualCellWidth + actualCellWidth / 2;
+      const startY = totalOffsetY + startRow * actualCellHeight + actualCellHeight / 2;
+      const endX = totalOffsetX + endCol * actualCellWidth + actualCellWidth / 2;
+      const endY = totalOffsetY + endRow * actualCellHeight + actualCellHeight / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  With border offset: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const extension = actualCellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = actualCellHeight * 0.7;
+      const cx = (startX + endX) / 2;
+      const cy = (startY + endY) / 2;
+
+      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create SVG
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", table.offsetWidth);
+      svg.setAttribute("height", table.offsetHeight);
+      svg.style.position = "absolute";
+      svg.style.left = "0px";
+      svg.style.top = "0px";
+      svg.style.pointerEvents = "none";
+      svg.classList.add("diagonal-capsule-overlay");
+      svg.style.zIndex = 10;
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const radius = capsuleWidth / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${cx - halfLength + radius} ${cy - radius}`,
+        // Top line
+        `L ${cx + halfLength - radius} ${cy - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${cx + halfLength - radius} ${cy + radius}`,
+        // Bottom line
+        `L ${cx - halfLength + radius} ${cy + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${cx - halfLength + radius} ${cy - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", actualCellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+      svg.appendChild(path);
+
+      table.style.position = "relative";
+      table.appendChild(svg);
+    }
+  }
+
+  /**
+   * Test Hypothesis 3: Use getBoundingClientRect for accurate positioning
+   */
+  renderDiagonalCapsuleSVGsWithBoundingRect(container, table, diagonalCapsules) {
+    console.log("Testing Hypothesis 3: Using getBoundingClientRect for accurate positioning");
+
+    // Remove any existing diagonal overlays
+    const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    // Get the table's bounding rect to understand its actual position
+    const tableRect = table.getBoundingClientRect();
+    const containerRect = this.solutionGrid.getBoundingClientRect();
+
+    console.log("Bounding rectangles:", {
+      table: { left: tableRect.left, top: tableRect.top, width: tableRect.width, height: tableRect.height },
+      container: { left: containerRect.left, top: containerRect.top, width: containerRect.width, height: containerRect.height },
+      offset: { left: tableRect.left - containerRect.left, top: tableRect.top - containerRect.top },
+    });
+
+    for (const info of diagonalCapsules) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Get actual cell positions using getBoundingClientRect
+      const startCell = table.querySelector(`td[data-row="${startRow}"][data-col="${startCol}"]`);
+      const endCell = table.querySelector(`td[data-row="${endRow}"][data-col="${endCol}"]`);
+
+      if (!startCell || !endCell) {
+        console.log(`Could not find cells for word "${info.word}"`);
+        continue;
+      }
+
+      const startCellRect = startCell.getBoundingClientRect();
+      const endCellRect = endCell.getBoundingClientRect();
+
+      // Calculate positions relative to the table
+      const startX = startCellRect.left - tableRect.left + startCellRect.width / 2;
+      const startY = startCellRect.top - tableRect.top + startCellRect.height / 2;
+      const endX = endCellRect.left - tableRect.left + endCellRect.width / 2;
+      const endY = endCellRect.top - tableRect.top + endCellRect.height / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  Using bounding rect: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const cellHeight = startCellRect.height;
+      const extension = cellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = cellHeight * 0.7;
+      const cx = (startX + endX) / 2;
+      const cy = (startY + endY) / 2;
+
+      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create SVG
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", table.offsetWidth);
+      svg.setAttribute("height", table.offsetHeight);
+      svg.style.position = "absolute";
+      svg.style.left = "0px";
+      svg.style.top = "0px";
+      svg.style.pointerEvents = "none";
+      svg.classList.add("diagonal-capsule-overlay");
+      svg.style.zIndex = 10;
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const radius = capsuleWidth / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${cx - halfLength + radius} ${cy - radius}`,
+        // Top line
+        `L ${cx + halfLength - radius} ${cy - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${cx + halfLength - radius} ${cy + radius}`,
+        // Bottom line
+        `L ${cx - halfLength + radius} ${cy + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${cx - halfLength + radius} ${cy - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", cellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+      svg.appendChild(path);
+
+      table.style.position = "relative";
+      table.appendChild(svg);
+    }
   }
 
   /**
@@ -741,10 +1164,15 @@ class WordSearchGenerator {
     if (solutionGrid.classList.contains("hidden")) {
       solutionGrid.classList.remove("hidden");
       toggleBtn.textContent = "Hide Solution";
-      // Render overlay after a short delay to ensure grid is fully rendered
+      // Render ALL capsules with viewBox after a short delay to ensure grid is fully rendered
       if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-        // Use a longer delay to ensure the grid is fully rendered and sized
-        setTimeout(() => this.renderCapsuleOverlay(), 200);
+        console.log("Rendering ALL capsules with viewBox for solution display");
+        setTimeout(() => {
+          const table = this.solutionGrid.querySelector("table");
+          if (table) {
+            this.renderAllCapsulesWithViewBox(this.solutionGrid, table);
+          }
+        }, 200);
       }
     } else {
       solutionGrid.classList.add("hidden");
@@ -756,37 +1184,49 @@ class WordSearchGenerator {
    * Print the puzzle
    */
   printPuzzle() {
+    console.log("printPuzzle called");
+
     // Ensure we have content to print
     if (!this.currentPuzzle || !this.currentSolution) {
       this.showError("No puzzle generated yet. Please generate a puzzle first.");
       return;
     }
 
-    // Ensure solution is visible and capsule overlay is rendered for print
+    // Ensure solution is visible for print
     if (this.solutionGrid.classList.contains("hidden")) {
-      // Temporarily show solution and render capsule overlay
+      console.log("Solution was hidden, showing it for print");
       this.solutionGrid.classList.remove("hidden");
-      if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-        setTimeout(() => {
-          this.renderCapsuleOverlay();
-          // Wait for overlay to render before printing
-          setTimeout(() => window.print(), 200);
-        }, 100);
-        return; // Exit early, print will be called after overlay renders
-      }
-    } else if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-      // Solution is already visible, just ensure capsule overlay is rendered
-      setTimeout(() => {
-        this.renderCapsuleOverlay();
-        // Wait for overlay to render before printing
-        setTimeout(() => window.print(), 200);
-      }, 100);
-      return; // Exit early, print will be called after overlay renders
     }
 
-    // Trigger the browser's print dialog on the current page
-    // The CSS @media print rules will handle the formatting
-    window.print();
+    // Force re-render of ALL capsules for print
+    if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+      console.log("Force rendering ALL capsules for print");
+
+      // First, remove any existing overlays
+      const existingOverlays = this.solutionGrid.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
+      existingOverlays.forEach((overlay) => overlay.remove());
+
+      // Then render ALL capsules
+      setTimeout(() => {
+        const table = this.solutionGrid.querySelector("table");
+        if (table) {
+          console.log("Rendering ALL capsules with viewBox for print");
+          this.renderAllCapsulesWithViewBox(this.solutionGrid, table);
+
+          // Give the overlays a moment to render before printing
+          setTimeout(() => {
+            console.log("Calling window.print()");
+            window.print();
+          }, 500);
+        } else {
+          console.log("No table found for print");
+          window.print();
+        }
+      }, 100);
+    } else {
+      console.log("Calling window.print()");
+      window.print();
+    }
   }
 
   /**
@@ -1253,7 +1693,7 @@ class WordSearchGenerator {
 
       // Only render capsule overlay if solution is visible and outline option is checked
       if (!this.solutionGrid.classList.contains("hidden") && this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-        setTimeout(() => this.renderCapsuleOverlay(), 200);
+        setTimeout(() => this.renderCapsuleCanvasOverlay(), 200);
       }
     }
   }
@@ -1272,9 +1712,1219 @@ class WordSearchGenerator {
       this.solutionGrid.classList.remove("with-border");
     }
   }
+
+  /**
+   * Force re-render of capsule overlays
+   */
+  forceRenderCapsules() {
+    if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+      console.log("Force rendering ALL capsule overlays with viewBox");
+      setTimeout(() => {
+        const table = this.solutionGrid.querySelector("table");
+        if (table) {
+          this.renderAllCapsulesWithViewBox(this.solutionGrid, table);
+        }
+      }, 100);
+    }
+  }
+
+  /**
+   * Fixed diagonal capsule rendering with proper timing and sizing
+   */
+  renderDiagonalCapsuleSVGsFixed(container, table, diagonalCapsules) {
+    console.log("Rendering diagonal capsules with fixed timing and sizing");
+
+    // Remove any existing diagonal overlays
+    const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    // Wait for table to be fully rendered
+    if (table.offsetWidth === 0 || table.offsetHeight === 0) {
+      console.log("Table not ready, retrying in 100ms");
+      setTimeout(() => this.renderDiagonalCapsuleSVGsFixed(container, table, diagonalCapsules), 100);
+      return;
+    }
+
+    const cell = table.querySelector("td");
+    if (!cell) return;
+
+    // Use actual rendered sizes
+    const actualCellWidth = cell.offsetWidth;
+    const actualCellHeight = cell.offsetHeight;
+
+    console.log("Table and cell sizes:", {
+      tableWidth: table.offsetWidth,
+      tableHeight: table.offsetHeight,
+      cellWidth: actualCellWidth,
+      cellHeight: actualCellHeight,
+    });
+
+    for (const info of diagonalCapsules) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate center of start and end cells using actual sizes
+      const startX = startCol * actualCellWidth + actualCellWidth / 2;
+      const startY = startRow * actualCellHeight + actualCellHeight / 2;
+      const endX = endCol * actualCellWidth + actualCellWidth / 2;
+      const endY = endRow * actualCellHeight + actualCellHeight / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  Calculated positions: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const extension = actualCellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = actualCellHeight * 0.7;
+      const cx = (startX + endX) / 2;
+      const cy = (startY + endY) / 2;
+
+      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create SVG with proper sizing
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", table.offsetWidth);
+      svg.setAttribute("height", table.offsetHeight);
+      svg.style.position = "absolute";
+      svg.style.left = "0px";
+      svg.style.top = "0px";
+      svg.style.pointerEvents = "none";
+      svg.classList.add("diagonal-capsule-overlay");
+      svg.style.zIndex = 10;
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const radius = capsuleWidth / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${cx - halfLength + radius} ${cy - radius}`,
+        // Top line
+        `L ${cx + halfLength - radius} ${cy - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${cx + halfLength - radius} ${cy + radius}`,
+        // Bottom line
+        `L ${cx - halfLength + radius} ${cy + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${cx - halfLength + radius} ${cy - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", actualCellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+      svg.appendChild(path);
+
+      table.style.position = "relative";
+      table.appendChild(svg);
+    }
+  }
+
+  /**
+   * Create print-friendly capsule outlines using CSS borders
+   * This is more reliable than SVG for printing
+   */
+  createPrintFriendlyCapsules() {
+    console.log("Creating print-friendly capsules");
+
+    // Remove any existing print-friendly capsules
+    const existingCapsules = this.solutionGrid.querySelectorAll(".print-capsule");
+    existingCapsules.forEach((capsule) => capsule.remove());
+
+    if (!this.outlineFoundWordsCheckbox || !this.outlineFoundWordsCheckbox.checked) {
+      return;
+    }
+
+    const table = this.solutionGrid.querySelector("table");
+    if (!table) return;
+
+    for (const info of this.placedWordInfos) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+
+      // Calculate position and size
+      const cellSize = 30;
+      const startX = startCol * cellSize;
+      const startY = startRow * cellSize;
+
+      // Calculate end position
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+      const endX = endCol * cellSize;
+      const endY = endRow * cellSize;
+
+      // Calculate capsule dimensions
+      const width = Math.abs(endX - startX) + cellSize;
+      const height = Math.abs(endY - startY) + cellSize;
+      const left = Math.min(startX, endX);
+      const top = Math.min(startY, endY);
+
+      // Create capsule container
+      const capsule = document.createElement("div");
+      capsule.className = "print-capsule";
+      capsule.style.position = "absolute";
+      capsule.style.pointerEvents = "none";
+      capsule.style.zIndex = "5";
+      capsule.style.left = left + "px";
+      capsule.style.top = top + "px";
+      capsule.style.width = width + "px";
+      capsule.style.height = height + "px";
+
+      // Create capsule using multiple elements for better print compatibility
+      const capsuleWidth = Math.min(width, height) * 0.7; // Capsule thickness
+
+      if (dRow === 0) {
+        // Horizontal
+        // Create horizontal capsule: two circles + rectangle
+        const circleRadius = capsuleWidth / 2;
+
+        // Left circle
+        const leftCircle = document.createElement("div");
+        leftCircle.style.position = "absolute";
+        leftCircle.style.left = "0px";
+        leftCircle.style.top = (height - capsuleWidth) / 2 + "px";
+        leftCircle.style.width = capsuleWidth + "px";
+        leftCircle.style.height = capsuleWidth + "px";
+        leftCircle.style.border = "2px solid black";
+        leftCircle.style.borderRadius = "50%";
+        leftCircle.style.backgroundColor = "transparent";
+
+        // Right circle
+        const rightCircle = document.createElement("div");
+        rightCircle.style.position = "absolute";
+        rightCircle.style.right = "0px";
+        rightCircle.style.top = (height - capsuleWidth) / 2 + "px";
+        rightCircle.style.width = capsuleWidth + "px";
+        rightCircle.style.height = capsuleWidth + "px";
+        rightCircle.style.border = "2px solid black";
+        rightCircle.style.borderRadius = "50%";
+        rightCircle.style.backgroundColor = "transparent";
+
+        // Center rectangle
+        const centerRect = document.createElement("div");
+        centerRect.style.position = "absolute";
+        centerRect.style.left = circleRadius + "px";
+        centerRect.style.top = (height - capsuleWidth) / 2 + "px";
+        centerRect.style.width = width - capsuleWidth + "px";
+        centerRect.style.height = capsuleWidth + "px";
+        centerRect.style.borderTop = "2px solid black";
+        centerRect.style.borderBottom = "2px solid black";
+        centerRect.style.backgroundColor = "transparent";
+
+        capsule.appendChild(leftCircle);
+        capsule.appendChild(rightCircle);
+        capsule.appendChild(centerRect);
+      } else if (dCol === 0) {
+        // Vertical
+        // Create vertical capsule: two circles + rectangle
+        const circleRadius = capsuleWidth / 2;
+
+        // Top circle
+        const topCircle = document.createElement("div");
+        topCircle.style.position = "absolute";
+        topCircle.style.top = "0px";
+        topCircle.style.left = (width - capsuleWidth) / 2 + "px";
+        topCircle.style.width = capsuleWidth + "px";
+        topCircle.style.height = capsuleWidth + "px";
+        topCircle.style.border = "2px solid black";
+        topCircle.style.borderRadius = "50%";
+        topCircle.style.backgroundColor = "transparent";
+
+        // Bottom circle
+        const bottomCircle = document.createElement("div");
+        bottomCircle.style.position = "absolute";
+        bottomCircle.style.bottom = "0px";
+        bottomCircle.style.left = (width - capsuleWidth) / 2 + "px";
+        bottomCircle.style.width = capsuleWidth + "px";
+        bottomCircle.style.height = capsuleWidth + "px";
+        bottomCircle.style.border = "2px solid black";
+        bottomCircle.style.borderRadius = "50%";
+        bottomCircle.style.backgroundColor = "transparent";
+
+        // Center rectangle
+        const centerRect = document.createElement("div");
+        centerRect.style.position = "absolute";
+        centerRect.style.top = circleRadius + "px";
+        centerRect.style.left = (width - capsuleWidth) / 2 + "px";
+        centerRect.style.width = capsuleWidth + "px";
+        centerRect.style.height = height - capsuleWidth + "px";
+        centerRect.style.borderLeft = "2px solid black";
+        centerRect.style.borderRight = "2px solid black";
+        centerRect.style.backgroundColor = "transparent";
+
+        capsule.appendChild(topCircle);
+        capsule.appendChild(bottomCircle);
+        capsule.appendChild(centerRect);
+      } else {
+        // Diagonal - use a simple rectangle for now
+        const diagonalRect = document.createElement("div");
+        diagonalRect.style.width = "100%";
+        diagonalRect.style.height = "100%";
+        diagonalRect.style.border = "2px solid black";
+        diagonalRect.style.borderRadius = capsuleWidth / 2 + "px";
+        diagonalRect.style.backgroundColor = "transparent";
+        capsule.appendChild(diagonalRect);
+      }
+
+      // Add to solution grid
+      this.solutionGrid.style.position = "relative";
+      this.solutionGrid.appendChild(capsule);
+    }
+  }
+
+  /**
+   * Debug method to test positioning hypotheses
+   */
+  debugPositioning() {
+    console.log("=== DEBUGGING POSITIONING ISSUES ===");
+
+    const table = this.solutionGrid.querySelector("table");
+    if (!table) {
+      console.log("No table found");
+      return;
+    }
+
+    const cell = table.querySelector("td");
+    if (!cell) {
+      console.log("No cell found");
+      return;
+    }
+
+    // Test Hypothesis 1: Cell Size Mismatch
+    console.log("--- Testing Hypothesis 1: Cell Size Mismatch ---");
+    const computedStyle = window.getComputedStyle(cell);
+    const computedWidth = parseInt(computedStyle.width);
+    const computedHeight = parseInt(computedStyle.height);
+    const offsetWidth = cell.offsetWidth;
+    const offsetHeight = cell.offsetHeight;
+    const clientWidth = cell.clientWidth;
+    const clientHeight = cell.clientHeight;
+    const boundingRect = cell.getBoundingClientRect();
+
+    console.log("Computed styles:", {
+      width: computedWidth,
+      height: computedHeight,
+      border: computedStyle.border,
+      padding: computedStyle.padding,
+      margin: computedStyle.margin,
+      boxSizing: computedStyle.boxSizing,
+    });
+
+    console.log("Actual measurements:", {
+      offsetWidth,
+      offsetHeight,
+      clientWidth,
+      clientHeight,
+      boundingRect: {
+        width: boundingRect.width,
+        height: boundingRect.height,
+        left: boundingRect.left,
+        top: boundingRect.top,
+      },
+    });
+
+    // Test Hypothesis 2: Table Border/Padding Offset
+    console.log("--- Testing Hypothesis 2: Table Border/Padding Offset ---");
+    const tableComputedStyle = window.getComputedStyle(table);
+    const tableRect = table.getBoundingClientRect();
+    console.log("Table styles:", {
+      border: tableComputedStyle.border,
+      padding: tableComputedStyle.padding,
+      margin: tableComputedStyle.margin,
+      borderCollapse: tableComputedStyle.borderCollapse,
+    });
+    console.log("Table measurements:", {
+      offsetWidth: table.offsetWidth,
+      offsetHeight: table.offsetHeight,
+      boundingRect: {
+        width: tableRect.width,
+        height: tableRect.height,
+        left: tableRect.left,
+        top: tableRect.top,
+      },
+    });
+
+    // Test Hypothesis 3: CSS Box Model Issues
+    console.log("--- Testing Hypothesis 3: CSS Box Model Issues ---");
+    const boxSizing = computedStyle.boxSizing;
+    const borderLeft = parseInt(computedStyle.borderLeftWidth) || 0;
+    const borderRight = parseInt(computedStyle.borderRightWidth) || 0;
+    const borderTop = parseInt(computedStyle.borderTopWidth) || 0;
+    const borderBottom = parseInt(computedStyle.borderBottomWidth) || 0;
+    const paddingLeft = parseInt(computedStyle.paddingLeft) || 0;
+    const paddingRight = parseInt(computedStyle.paddingRight) || 0;
+    const paddingTop = parseInt(computedStyle.paddingTop) || 0;
+    const paddingBottom = parseInt(computedStyle.paddingBottom) || 0;
+
+    console.log("Box model analysis:", {
+      boxSizing,
+      borders: { left: borderLeft, right: borderRight, top: borderTop, bottom: borderBottom },
+      padding: { left: paddingLeft, right: paddingRight, top: paddingTop, bottom: paddingBottom },
+      totalBorder: borderLeft + borderRight + borderTop + borderBottom,
+      totalPadding: paddingLeft + paddingRight + paddingTop + paddingBottom,
+    });
+
+    // Test Hypothesis 4: Print Media Query Scaling
+    console.log("--- Testing Hypothesis 4: Print Media Query Scaling ---");
+    const mediaQuery = window.matchMedia("print");
+    console.log("Print media query:", {
+      matches: mediaQuery.matches,
+      media: mediaQuery.media,
+    });
+
+    // Test Hypothesis 5: SVG Viewport Mismatch
+    console.log("--- Testing Hypothesis 5: SVG Viewport Mismatch ---");
+    const existingSVG = table.querySelector(".diagonal-capsule-overlay");
+    if (existingSVG) {
+      console.log("Existing SVG:", {
+        width: existingSVG.getAttribute("width"),
+        height: existingSVG.getAttribute("height"),
+        viewBox: existingSVG.getAttribute("viewBox"),
+        style: {
+          width: existingSVG.style.width,
+          height: existingSVG.style.height,
+        },
+      });
+    }
+
+    // Test Hypothesis 6: Coordinate System Origin
+    console.log("--- Testing Hypothesis 6: Coordinate System Origin ---");
+    const tableOffset = table.getBoundingClientRect();
+    const containerOffset = this.solutionGrid.getBoundingClientRect();
+    console.log("Coordinate origins:", {
+      tableOffset: { left: tableOffset.left, top: tableOffset.top },
+      containerOffset: { left: containerOffset.left, top: containerOffset.top },
+      difference: {
+        left: tableOffset.left - containerOffset.left,
+        top: tableOffset.top - containerOffset.top,
+      },
+    });
+
+    // Test Hypothesis 7: Browser Zoom/Scaling
+    console.log("--- Testing Hypothesis 7: Browser Zoom/Scaling ---");
+    console.log("Device pixel ratio:", window.devicePixelRatio);
+    console.log("Visual viewport:", {
+      width: window.visualViewport?.width,
+      height: window.visualViewport?.height,
+      scale: window.visualViewport?.scale,
+    });
+
+    // Test Hypothesis 8: CSS Transform Issues
+    console.log("--- Testing Hypothesis 8: CSS Transform Issues ---");
+    let element = table;
+    let transformChain = [];
+    while (element && element !== document.body) {
+      const style = window.getComputedStyle(element);
+      const transform = style.transform;
+      if (transform && transform !== "none") {
+        transformChain.push({
+          element: element.tagName,
+          transform: transform,
+        });
+      }
+      element = element.parentElement;
+    }
+    console.log("Transform chain:", transformChain);
+
+    // Test Hypothesis 9: Timing Issues
+    console.log("--- Testing Hypothesis 9: Timing Issues ---");
+    console.log("Table ready state:", {
+      offsetWidth: table.offsetWidth,
+      offsetHeight: table.offsetHeight,
+      children: table.children.length,
+    });
+
+    // Test Hypothesis 10: Multiple Overlay Conflicts
+    console.log("--- Testing Hypothesis 10: Multiple Overlay Conflicts ---");
+    const allOverlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay, .capsule-overlay");
+    console.log("Existing overlays:", allOverlays.length);
+    allOverlays.forEach((overlay, index) => {
+      console.log(`Overlay ${index}:`, {
+        className: overlay.className,
+        style: {
+          position: overlay.style.position,
+          left: overlay.style.left,
+          top: overlay.style.top,
+          zIndex: overlay.style.zIndex,
+        },
+      });
+    });
+
+    console.log("=== END DEBUGGING ===");
+  }
+
+  /**
+   * Print-specific diagonal capsule rendering
+   */
+  renderDiagonalCapsulesForPrint() {
+    console.log("Rendering diagonal capsules specifically for print");
+
+    const table = this.solutionGrid.querySelector("table");
+    if (!table) {
+      console.log("No table found for print rendering");
+      return;
+    }
+
+    // Remove any existing overlays
+    const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay, .capsule-canvas-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    // Force table to be ready
+    if (table.offsetWidth === 0 || table.offsetHeight === 0) {
+      console.log("Table not ready for print, forcing layout");
+      // Force a layout recalculation
+      table.offsetHeight;
+      table.offsetWidth;
+    }
+
+    const cell = table.querySelector("td");
+    if (!cell) {
+      console.log("No cell found for print rendering");
+      return;
+    }
+
+    // Get diagonal words
+    const diagonalCapsules = this.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+
+    if (diagonalCapsules.length === 0) {
+      console.log("No diagonal words found for print");
+      return;
+    }
+
+    console.log(`Found ${diagonalCapsules.length} diagonal words for print`);
+
+    // Use actual rendered sizes
+    const actualCellWidth = cell.offsetWidth;
+    const actualCellHeight = cell.offsetHeight;
+
+    console.log("Print table and cell sizes:", {
+      tableWidth: table.offsetWidth,
+      tableHeight: table.offsetHeight,
+      cellWidth: actualCellWidth,
+      cellHeight: actualCellHeight,
+    });
+
+    for (const info of diagonalCapsules) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate center of start and end cells using actual sizes
+      const startX = startCol * actualCellWidth + actualCellWidth / 2;
+      const startY = startRow * actualCellHeight + actualCellHeight / 2;
+      const endX = endCol * actualCellWidth + actualCellWidth / 2;
+      const endY = endRow * actualCellHeight + actualCellHeight / 2;
+
+      console.log(`Print word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  Print positions: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const extension = actualCellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = actualCellHeight * 0.7;
+      const cx = (startX + endX) / 2;
+      const cy = (startY + endY) / 2;
+
+      console.log(`  Print capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create SVG with proper sizing for print
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", table.offsetWidth);
+      svg.setAttribute("height", table.offsetHeight);
+      svg.style.position = "absolute";
+      svg.style.left = "0px";
+      svg.style.top = "0px";
+      svg.style.pointerEvents = "none";
+      svg.classList.add("diagonal-capsule-overlay");
+      svg.style.zIndex = 10;
+      svg.style.display = "block";
+      svg.style.visibility = "visible";
+      svg.style.opacity = "1";
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const radius = capsuleWidth / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${cx - halfLength + radius} ${cy - radius}`,
+        // Top line
+        `L ${cx + halfLength - radius} ${cy - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${cx + halfLength - radius} ${cy + radius}`,
+        // Bottom line
+        `L ${cx - halfLength + radius} ${cy + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${cx - halfLength + radius} ${cy - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", actualCellHeight * 0.15);
+      path.setAttribute("opacity", "1");
+      path.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+      svg.appendChild(path);
+
+      table.style.position = "relative";
+      table.appendChild(svg);
+
+      console.log(`Added print SVG for "${info.word}"`);
+    }
+
+    console.log("Print diagonal capsules rendering complete");
+  }
+
+  /**
+   * Detect print mode and ensure overlays are visible
+   */
+  handlePrintMode() {
+    console.log("Handling print mode");
+
+    // Add print mode detection
+    const mediaQuery = window.matchMedia("print");
+
+    const handlePrintChange = (e) => {
+      if (e.matches) {
+        console.log("Print mode detected - ensuring ALL overlays are visible");
+        // Force re-render of ALL capsules for print
+        if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+          setTimeout(() => {
+            const table = this.solutionGrid.querySelector("table");
+            if (table) {
+              this.renderAllCapsulesWithViewBox(this.solutionGrid, table);
+            }
+          }, 100);
+        }
+      }
+    };
+
+    // Listen for print mode changes
+    mediaQuery.addListener(handlePrintChange);
+
+    // Also handle the beforeprint event
+    window.addEventListener("beforeprint", () => {
+      console.log("beforeprint event fired - rendering ALL capsules");
+      if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
+        setTimeout(() => {
+          const table = this.solutionGrid.querySelector("table");
+          if (table) {
+            this.renderAllCapsulesWithViewBox(this.solutionGrid, table);
+          }
+        }, 100);
+      }
+    });
+  }
+
+  /**
+   * Render diagonal capsules using actual DOM cell positions
+   */
+  renderDiagonalCapsulesWithActualPositions(container, table, diagonalCapsules) {
+    console.log("Rendering diagonal capsules using actual DOM positions");
+
+    // Remove any existing diagonal overlays
+    const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    // Wait for table to be fully rendered
+    if (table.offsetWidth === 0 || table.offsetHeight === 0) {
+      console.log("Table not ready, retrying in 100ms");
+      setTimeout(() => this.renderDiagonalCapsulesWithActualPositions(container, table, diagonalCapsules), 100);
+      return;
+    }
+
+    for (const info of diagonalCapsules) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Get actual cell elements from DOM
+      const startCell = table.querySelector(`td[data-row="${startRow}"][data-col="${startCol}"]`);
+      const endCell = table.querySelector(`td[data-row="${endRow}"][data-col="${endCol}"]`);
+
+      if (!startCell || !endCell) {
+        console.log(`Could not find cells for word "${info.word}"`);
+        continue;
+      }
+
+      // Get actual cell positions relative to the table
+      const startCellRect = startCell.getBoundingClientRect();
+      const endCellRect = endCell.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+
+      // Calculate positions relative to the table
+      const startX = startCellRect.left - tableRect.left + startCellRect.width / 2;
+      const startY = startCellRect.top - tableRect.top + startCellRect.height / 2;
+      const endX = endCellRect.left - tableRect.left + endCellRect.width / 2;
+      const endY = endCellRect.top - tableRect.top + endCellRect.height / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  Actual DOM positions: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const cellHeight = startCellRect.height;
+      const extension = cellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = cellHeight * 0.7;
+      const cx = (startX + endX) / 2;
+      const cy = (startY + endY) / 2;
+
+      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create SVG with proper sizing
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", table.offsetWidth);
+      svg.setAttribute("height", table.offsetHeight);
+      svg.style.position = "absolute";
+      svg.style.left = "0px";
+      svg.style.top = "0px";
+      svg.style.pointerEvents = "none";
+      svg.classList.add("diagonal-capsule-overlay");
+      svg.style.zIndex = 10;
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const radius = capsuleWidth / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${cx - halfLength + radius} ${cy - radius}`,
+        // Top line
+        `L ${cx + halfLength - radius} ${cy - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${cx + halfLength - radius} ${cy + radius}`,
+        // Bottom line
+        `L ${cx - halfLength + radius} ${cy + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${cx - halfLength + radius} ${cy - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", cellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+      svg.appendChild(path);
+
+      table.style.position = "relative";
+      table.appendChild(svg);
+    }
+  }
+
+  /**
+   * Create diagonal capsules by directly overlaying on cells
+   */
+  renderDiagonalCapsulesDirectOverlay(container, table, diagonalCapsules) {
+    console.log("Creating diagonal capsules with direct cell overlay");
+
+    // Remove any existing diagonal overlays
+    const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    for (const info of diagonalCapsules) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+
+      // Get all cells for this word
+      const cells = [];
+      for (let i = 0; i < length; i++) {
+        const row = startRow + i * dRow;
+        const col = startCol + i * dCol;
+        const cell = table.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
+        if (cell) {
+          cells.push(cell);
+        }
+      }
+
+      if (cells.length !== length) {
+        console.log(`Could not find all cells for word "${info.word}"`);
+        continue;
+      }
+
+      // Get the bounding box of all cells
+      const firstCell = cells[0];
+      const lastCell = cells[cells.length - 1];
+
+      const firstRect = firstCell.getBoundingClientRect();
+      const lastRect = lastCell.getBoundingClientRect();
+      const tableRect = table.getBoundingClientRect();
+
+      // Calculate the bounding box
+      const minX = Math.min(firstRect.left, lastRect.left);
+      const maxX = Math.max(firstRect.right, lastRect.right);
+      const minY = Math.min(firstRect.top, lastRect.top);
+      const maxY = Math.max(firstRect.bottom, lastRect.bottom);
+
+      // Convert to table-relative coordinates
+      const left = minX - tableRect.left;
+      const top = minY - tableRect.top;
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      console.log(`Word "${info.word}": cells from (${startCol},${startRow}) to (${startCol + (length - 1) * dCol},${startRow + (length - 1) * dRow})`);
+      console.log(`  Bounding box: left=${left}, top=${top}, width=${width}, height=${height}`);
+
+      // Create a proper capsule that covers all cells
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("width", table.offsetWidth);
+      svg.setAttribute("height", table.offsetHeight);
+      svg.style.position = "absolute";
+      svg.style.left = "0px";
+      svg.style.top = "0px";
+      svg.style.pointerEvents = "none";
+      svg.classList.add("diagonal-capsule-overlay");
+      svg.style.zIndex = 10;
+
+      // Create a proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path for the bounding box
+      const centerX = left + width / 2;
+      const centerY = top + height / 2;
+      const capsuleWidth = Math.min(width, height) * 0.7;
+      const radius = capsuleWidth / 2;
+      const halfLength = Math.max(width, height) / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Top line
+        `L ${centerX + halfLength - radius} ${centerY - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${centerX + halfLength - radius} ${centerY + radius}`,
+        // Bottom line
+        `L ${centerX - halfLength + radius} ${centerY + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", "3");
+      path.setAttribute("opacity", "0.85");
+      svg.appendChild(path);
+
+      table.style.position = "relative";
+      table.appendChild(svg);
+
+      console.log(`Added direct overlay for "${info.word}"`);
+    }
+  }
+
+  /**
+   * Create diagonal capsules using SVG viewBox for proper scaling
+   */
+  renderDiagonalCapsulesWithViewBox(container, table, diagonalCapsules) {
+    console.log("Creating diagonal capsules with SVG viewBox for proper scaling");
+
+    // Remove any existing diagonal overlays
+    const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    // Wait for table to be fully rendered
+    if (table.offsetWidth === 0 || table.offsetHeight === 0) {
+      console.log("Table not ready, retrying in 100ms");
+      setTimeout(() => this.renderDiagonalCapsulesWithViewBox(container, table, diagonalCapsules), 100);
+      return;
+    }
+
+    const cell = table.querySelector("td");
+    if (!cell) return;
+
+    // Get actual cell size
+    const actualCellWidth = cell.offsetWidth;
+    const actualCellHeight = cell.offsetHeight;
+    const gridSize = this.currentPuzzle ? this.currentPuzzle.length : 15;
+
+    // Calculate the total grid size in pixels
+    const gridWidth = gridSize * actualCellWidth;
+    const gridHeight = gridSize * actualCellHeight;
+
+    console.log("Grid dimensions:", {
+      gridSize,
+      cellWidth: actualCellWidth,
+      cellHeight: actualCellHeight,
+      gridWidth,
+      gridHeight,
+      tableWidth: table.offsetWidth,
+      tableHeight: table.offsetHeight,
+    });
+
+    // Create a single SVG that covers the entire grid
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.setAttribute("viewBox", `0 0 ${gridWidth} ${gridHeight}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.style.position = "absolute";
+    svg.style.left = "0px";
+    svg.style.top = "0px";
+    svg.style.pointerEvents = "none";
+    svg.classList.add("diagonal-capsule-overlay");
+    svg.style.zIndex = 10;
+
+    for (const info of diagonalCapsules) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate positions in the SVG coordinate system
+      const startX = startCol * actualCellWidth + actualCellWidth / 2;
+      const startY = startRow * actualCellHeight + actualCellHeight / 2;
+      const endX = endCol * actualCellWidth + actualCellWidth / 2;
+      const endY = endRow * actualCellHeight + actualCellHeight / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  SVG coordinates: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const extension = actualCellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = actualCellHeight * 0.7;
+      const radius = capsuleWidth / 2;
+
+      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const centerX = (startX + endX) / 2;
+      const centerY = (startY + endY) / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Top line
+        `L ${centerX + halfLength - radius} ${centerY - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${centerX + halfLength - radius} ${centerY + radius}`,
+        // Bottom line
+        `L ${centerX - halfLength + radius} ${centerY + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", actualCellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${centerX} ${centerY})`);
+      svg.appendChild(path);
+    }
+
+    table.style.position = "relative";
+    table.appendChild(svg);
+
+    console.log("Added SVG with viewBox for proper scaling");
+  }
+
+  /**
+   * Render ALL capsules (horizontal, vertical, and diagonal) using viewBox for consistent positioning
+   */
+  renderAllCapsulesWithViewBox(container, table) {
+    console.log("Rendering ALL capsules with viewBox for consistent positioning");
+
+    // Remove any existing overlays
+    const oldOverlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
+    oldOverlays.forEach((el) => el.remove());
+
+    // Wait for table to be fully rendered
+    if (table.offsetWidth === 0 || table.offsetHeight === 0) {
+      console.log("Table not ready, retrying in 100ms");
+      setTimeout(() => this.renderAllCapsulesWithViewBox(container, table), 100);
+      return;
+    }
+
+    const cell = table.querySelector("td");
+    if (!cell) return;
+
+    // Get actual cell size
+    const actualCellWidth = cell.offsetWidth;
+    const actualCellHeight = cell.offsetHeight;
+    const gridSize = this.currentPuzzle ? this.currentPuzzle.length : 15;
+
+    // Calculate the total grid size in pixels
+    const gridWidth = gridSize * actualCellWidth;
+    const gridHeight = gridSize * actualCellHeight;
+
+    console.log("Grid dimensions:", {
+      gridSize,
+      cellWidth: actualCellWidth,
+      cellHeight: actualCellHeight,
+      gridWidth,
+      gridHeight,
+      tableWidth: table.offsetWidth,
+      tableHeight: table.offsetHeight,
+    });
+
+    // Create a single SVG that covers the entire grid
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("height", "100%");
+    svg.setAttribute("viewBox", `0 0 ${gridWidth} ${gridHeight}`);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.style.position = "absolute";
+    svg.style.left = "0px";
+    svg.style.top = "0px";
+    svg.style.pointerEvents = "none";
+    svg.classList.add("capsule-canvas-overlay");
+    svg.style.zIndex = 10;
+
+    // Process ALL words (horizontal, vertical, and diagonal)
+    console.log(`Processing ${this.placedWordInfos.length} words for capsules`);
+
+    for (const info of this.placedWordInfos) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate positions in the SVG coordinate system
+      const startX = startCol * actualCellWidth + actualCellWidth / 2;
+      const startY = startRow * actualCellHeight + actualCellHeight / 2;
+      const endX = endCol * actualCellWidth + actualCellWidth / 2;
+      const endY = endRow * actualCellHeight + actualCellHeight / 2;
+
+      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
+      console.log(`  SVG coordinates: start(${startX},${startY}) end(${endX},${endY})`);
+
+      // Capsule parameters
+      const extension = actualCellHeight * 0.4;
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = actualCellHeight * 0.7;
+      const radius = capsuleWidth / 2;
+
+      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
+
+      // Create proper capsule shape using SVG path
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+
+      // Calculate capsule path
+      const halfLength = capsuleLength / 2;
+      const centerX = (startX + endX) / 2;
+      const centerY = (startY + endY) / 2;
+
+      // Create capsule path: rectangle with rounded ends
+      const pathData = [
+        // Start at left side of capsule
+        `M ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Top line
+        `L ${centerX + halfLength - radius} ${centerY - radius}`,
+        // Top right arc
+        `A ${radius} ${radius} 0 0 1 ${centerX + halfLength - radius} ${centerY + radius}`,
+        // Bottom line
+        `L ${centerX - halfLength + radius} ${centerY + radius}`,
+        // Bottom left arc
+        `A ${radius} ${radius} 0 0 1 ${centerX - halfLength + radius} ${centerY - radius}`,
+        // Close path
+        "Z",
+      ].join(" ");
+
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", "none");
+      path.setAttribute("stroke", "#000");
+      path.setAttribute("stroke-width", actualCellHeight * 0.15);
+      path.setAttribute("opacity", "0.85");
+      path.setAttribute("transform", `rotate(${angle} ${centerX} ${centerY})`);
+      svg.appendChild(path);
+
+      // Debug word type
+      const isHorizontal = dRow === 0 && dCol !== 0;
+      const isVertical = dCol === 0 && dRow !== 0;
+      const isDiagonal = Math.abs(dRow) === 1 && Math.abs(dCol) === 1;
+      const wordType = isHorizontal ? "HORIZONTAL" : isVertical ? "VERTICAL" : isDiagonal ? "DIAGONAL" : "OTHER";
+      console.log(`  Added capsule for "${info.word}" (${wordType})`);
+    }
+
+    table.style.position = "relative";
+    table.appendChild(svg);
+
+    console.log("Added unified SVG with viewBox for ALL capsules");
+  }
 }
 
 // Initialize the application when DOM is loaded
 document.addEventListener("DOMContentLoaded", () => {
-  new WordSearchGenerator();
+  const generator = new WordSearchGenerator();
+
+  // Expose test methods globally for debugging
+  window.testPrintMode = () => generator.testPrintModeDetection();
+  window.forceRenderCapsules = () => generator.forceRenderCapsules();
+  window.testCapsules = () => generator.renderCapsuleCanvasOverlay();
+  window.debugPositioning = () => generator.debugPositioning();
+  window.testHypothesis1 = () => {
+    // Test Hypothesis 1: Use actual rendered cell sizes
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      const diagonalCapsules = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+      generator.renderDiagonalCapsuleSVGsWithBorderOffset(generator.solutionGrid, table, diagonalCapsules);
+    }
+  };
+  window.testHypothesis3 = () => {
+    // Test Hypothesis 3: Use getBoundingClientRect
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      const diagonalCapsules = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+      generator.renderDiagonalCapsuleSVGsWithBoundingRect(generator.solutionGrid, table, diagonalCapsules);
+    }
+  };
+  window.testFixedMethod = () => {
+    // Test the fixed method
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      const diagonalCapsules = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+      generator.renderDiagonalCapsuleSVGsFixed(generator.solutionGrid, table, diagonalCapsules);
+    }
+  };
+  window.testPrintMethod = () => {
+    // Test the print-specific method
+    generator.renderDiagonalCapsulesForPrint();
+  };
+  window.testActualPositions = () => {
+    // Test the actual DOM positions method
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      const diagonalCapsules = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+      generator.renderDiagonalCapsulesWithActualPositions(generator.solutionGrid, table, diagonalCapsules);
+    }
+  };
+  window.testDirectOverlay = () => {
+    // Test the direct overlay method
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      const diagonalCapsules = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+      generator.renderDiagonalCapsulesDirectOverlay(generator.solutionGrid, table, diagonalCapsules);
+    }
+  };
+  window.testViewBox = () => {
+    // Test the viewBox method
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      const diagonalCapsules = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+      generator.renderDiagonalCapsulesWithViewBox(generator.solutionGrid, table, diagonalCapsules);
+    }
+  };
+  window.testPrintCapsules = () => {
+    // Test capsules specifically for print preview
+    console.log("Testing capsules for print preview...");
+
+    // Show solution if hidden
+    if (generator.solutionGrid.style.display === "none") {
+      generator.toggleSolution();
+    }
+
+    // Force re-render of ALL capsules with viewBox
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      generator.renderAllCapsulesWithViewBox(generator.solutionGrid, table);
+    }
+
+    console.log("ALL capsules re-rendered with viewBox. Now try print preview (Ctrl+P)");
+  };
+  window.testAllCapsules = () => {
+    // Test that ALL words (horizontal, vertical, diagonal) are rendered
+    console.log("Testing ALL capsule rendering...");
+    console.log("Placed word infos:", generator.placedWordInfos);
+
+    const horizontalWords = generator.placedWordInfos.filter((info) => info.dRow === 0 || info.dCol === 0);
+    const diagonalWords = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
+
+    console.log("Horizontal/Vertical words:", horizontalWords.length);
+    console.log("Diagonal words:", diagonalWords.length);
+    console.log("Total words:", generator.placedWordInfos.length);
+
+    // Show solution if hidden
+    if (generator.solutionGrid.style.display === "none") {
+      generator.toggleSolution();
+    }
+
+    // Force re-render
+    const table = generator.solutionGrid.querySelector("table");
+    if (table) {
+      generator.renderAllCapsulesWithViewBox(generator.solutionGrid, table);
+    }
+
+    console.log("All capsules should now be visible!");
+  };
+  window.debugPrintCapsules = () => {
+    // Debug what's happening with print capsules
+    console.log("=== DEBUG PRINT CAPSULES ===");
+    console.log("Outline checkbox checked:", generator.outlineFoundWordsCheckbox?.checked);
+    console.log("Solution grid hidden:", generator.solutionGrid.classList.contains("hidden"));
+    console.log("Placed word infos:", generator.placedWordInfos);
+
+    const table = generator.solutionGrid.querySelector("table");
+    console.log("Table found:", !!table);
+    if (table) {
+      console.log("Table dimensions:", table.offsetWidth, "x", table.offsetHeight);
+      const overlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
+      console.log("Existing overlays:", overlays.length);
+    }
+
+    // Show solution and force render
+    if (generator.solutionGrid.classList.contains("hidden")) {
+      generator.solutionGrid.classList.remove("hidden");
+    }
+
+    if (table) {
+      console.log("Rendering ALL capsules...");
+      generator.renderAllCapsulesWithViewBox(generator.solutionGrid, table);
+
+      // Check what was created
+      setTimeout(() => {
+        const newOverlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
+        console.log("Overlays after rendering:", newOverlays.length);
+        console.log("=== END DEBUG ===");
+      }, 100);
+    }
+  };
 });

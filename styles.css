@@ -141,18 +141,6 @@
 
 /* Print Styles */
 @media print {
-  body {
-    background: white !important;
-    color: black !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
-
-  .container {
-    max-width: none !important;
-    padding: 20px !important;
-  }
-
   /* Hide elements not needed for printing */
   #generateBtn,
   #printBtn,
@@ -167,82 +155,68 @@
     display: block !important;
   }
 
-  /* Remove shadows and backgrounds for print, but keep content visible */
-  .bg-white {
-    background-color: white !important;
-  }
-  .shadow-md {
-    box-shadow: none !important;
-  }
-  .rounded-lg {
-    border-radius: 0 !important;
-  }
-
   /* Show solution by default when printing */
   #solutionGrid {
     display: inline-block !important;
   }
 
-  /* Ensure puzzle fits on page */
-  .puzzle-cell,
-  .solution-cell {
-    width: 18px !important;
-    height: 18px !important;
-    font-size: 9px !important;
-    border: 1px solid #000 !important;
-    padding: 0 !important;
-  }
-
-  /* Remove background colors for better printing */
-  .puzzle-cell,
-  .solution-cell,
-  #puzzleGrid,
-  #solutionGrid {
-    background-color: white !important;
-    color: black !important;
-  }
-
-  /* Ensure tables display properly in print */
-  #puzzleGrid table,
-  #solutionGrid table {
-    border-collapse: collapse !important;
-    table-layout: fixed !important;
-  }
-
-  /* Show solution grid in print */
-  #solutionGrid {
-    display: block !important;
-  }
-
-  /* Layout for print */
-  #puzzleContainer {
-    display: block !important;
-  }
-
-  #puzzleContainer > div {
-    margin-bottom: 20px !important;
-  }
-
-  /* Word list styling for print */
-  #wordListDisplay {
-    background: white !important;
-    border: 1px solid #000 !important;
-    padding: 10px !important;
-    margin-bottom: 15px !important;
-  }
-
   /* Ensure capsule overlays are visible and properly positioned in print */
   .capsule-overlay {
     display: block !important;
-    overflow: visible !important;
+    visibility: visible !important;
+    opacity: 1 !important;
     position: absolute !important;
     z-index: 10 !important;
     pointer-events: none !important;
-    /* Remove forced top: 0 and left: 0 to allow proper positioning */
   }
+
+  /* Ensure print-friendly capsules are visible in print */
+  .print-capsule {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Ensure the solution grid container can properly position the overlay */
   #solutionGrid {
     position: relative !important;
     overflow: visible !important;
+  }
+
+  /* Ensure canvas overlays are properly positioned in print */
+  #solutionGrid table {
+    position: relative !important;
+  }
+
+  /* Ensure diagonal capsule overlays are visible in print */
+  .diagonal-capsule-overlay {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute !important;
+    z-index: 10 !important;
+    pointer-events: none !important;
+  }
+
+  /* Force all overlays to be visible in print */
+  .capsule-canvas-overlay,
+  .diagonal-capsule-overlay,
+  .capsule-overlay {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: absolute !important;
+    z-index: 10 !important;
+    pointer-events: none !important;
+  }
+
+  /* Ensure SVG viewBox scaling works in print */
+  .diagonal-capsule-overlay,
+  .capsule-canvas-overlay {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
   }
 }
 
@@ -315,4 +289,47 @@ textarea:focus {
   z-index: 2;
   pointer-events: none;
   overflow: visible; /* Ensure capsules are not clipped */
+}
+
+/* Hide print-friendly capsules on screen */
+.print-capsule {
+  display: none;
+}
+
+.capsule-canvas-overlay {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+@media print {
+  .capsule-canvas-overlay {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: absolute !important;
+    z-index: 10 !important;
+    pointer-events: none !important;
+  }
+}
+
+.diagonal-capsule-overlay {
+  display: block;
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+@media print {
+  .diagonal-capsule-overlay {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
 }
