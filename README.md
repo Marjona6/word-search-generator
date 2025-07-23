@@ -5,9 +5,9 @@ A simple, browser-based word search puzzle generator that creates printable puzz
 ## ✨ Features
 
 - **Custom Word Lists**: Enter your own words, one per line
-- **Flexible Grid Sizes**: Choose from 10x10, 12x12, 15x15, 18x18, or 20x20 grids
+- **Flexible Grid Sizes**: Choose from 10x10, 12x12, 14x14, 15x15, 18x18, or 20x20 grids
 - **Multiple Directions**: Support for horizontal, vertical, diagonal, and reverse word placement
-- **Smart Placement**: Advanced algorithm ensures all words fit without conflicts
+- **Smart Placement**: Advanced algorithm tries to fit all words with overlap, only warns if some can't be placed
 - **Printable Output**: Clean, print-friendly layout
 - **PDF Download**: Export puzzles as PDF files
 - **Solution Toggle**: Show/hide the solution for easy checking
