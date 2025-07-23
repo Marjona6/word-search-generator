@@ -144,7 +144,7 @@ class WordSearchGenerator {
       .split(/[\n,]/) // Split by newlines and commas
       .map((word) => word.trim())
       .filter((word) => word.length > 0)
-      .map((word) => word.replace(/[^A-Za-z]/g, "").toUpperCase()) // Remove non-letters and convert to uppercase
+      .map((word) => word.replace(/[^A-Za-z\s]/g, "").toUpperCase()) // Remove non-letters/non-spaces and convert to uppercase
       .filter((word, index, arr) => arr.indexOf(word) === index); // Remove duplicates
   }
 
@@ -227,9 +227,11 @@ class WordSearchGenerator {
       return false;
     }
 
-    const maxWordLength = Math.max(...words.map((word) => word.length));
+    // Count only letters (excluding spaces) for length validation
+    const maxWordLength = Math.max(...words.map((word) => word.replace(/\s/g, "").length));
     if (maxWordLength > size) {
-      this.showError(`Word "${words.find((word) => word.length === maxWordLength)}" is too long for a ${size}x${size} puzzle.`);
+      const longestWord = words.find((word) => word.replace(/\s/g, "").length === maxWordLength);
+      this.showError(`Word "${longestWord}" is too long for a ${size}x${size} puzzle.`);
       return false;
     }
 
@@ -309,7 +311,7 @@ class WordSearchGenerator {
     const placedWordInfos = [];
 
     // Sort words by length (longest first) for better placement
-    const wordsByLength = [...words].sort((a, b) => b.length - a.length);
+    const wordsByLength = [...words].sort((a, b) => b.replace(/\s/g, "").length - a.replace(/\s/g, "").length);
 
     for (const word of wordsByLength) {
       let placed = false;
@@ -411,7 +413,7 @@ class WordSearchGenerator {
         startCol: col,
         dRow,
         dCol,
-        length: word.length,
+        length: word.replace(/\s/g, "").length,
       };
     }
 
@@ -425,11 +427,14 @@ class WordSearchGenerator {
     const [dRow, dCol] = direction;
     let overlap = 0;
 
-    for (let i = 0; i < word.length; i++) {
+    // Remove spaces from word for overlap calculation
+    const wordWithoutSpaces = word.replace(/\s/g, "");
+
+    for (let i = 0; i < wordWithoutSpaces.length; i++) {
       const row = startRow + i * dRow;
       const col = startCol + i * dCol;
 
-      if (grid[row][col] === word[i]) {
+      if (grid[row][col] === wordWithoutSpaces[i]) {
         overlap++;
       }
     }
@@ -460,8 +465,11 @@ class WordSearchGenerator {
     const size = grid.length;
     let score = 0;
 
+    // Remove spaces from word for spacing calculation
+    const wordWithoutSpaces = word.replace(/\s/g, "");
+
     // Check each cell the word would occupy
-    for (let i = 0; i < word.length; i++) {
+    for (let i = 0; i < wordWithoutSpaces.length; i++) {
       const row = startRow + i * dRow;
       const col = startCol + i * dCol;
 
@@ -528,11 +536,11 @@ class WordSearchGenerator {
     }
 
     if (directions.diagonal) {
-      // Only forward diagonal directions (top to bottom, left to right)
+      // Only forward diagonal direction (top-left to bottom-right)
       vectors.push([1, 1]); // Down-right (top-left to bottom-right)
-      vectors.push([1, -1]); // Down-left (top-right to bottom-left)
       if (directions.reverse) {
         // Add backward diagonal directions only when reverse is selected
+        vectors.push([1, -1]); // Down-left (top-right to bottom-left)
         vectors.push([-1, 1]); // Up-right (bottom-left to top-right)
         vectors.push([-1, -1]); // Up-left (bottom-right to top-left)
       }
@@ -548,7 +556,10 @@ class WordSearchGenerator {
     const size = grid.length;
     const [dRow, dCol] = direction;
 
-    for (let i = 0; i < word.length; i++) {
+    // Remove spaces from word for placement
+    const wordWithoutSpaces = word.replace(/\s/g, "");
+
+    for (let i = 0; i < wordWithoutSpaces.length; i++) {
       const row = startRow + i * dRow;
       const col = startCol + i * dCol;
 
@@ -558,7 +569,7 @@ class WordSearchGenerator {
       }
 
       // Check if cell is empty or contains the same letter
-      if (grid[row][col] !== "" && grid[row][col] !== word[i]) {
+      if (grid[row][col] !== "" && grid[row][col] !== wordWithoutSpaces[i]) {
         return false;
       }
     }
@@ -572,12 +583,15 @@ class WordSearchGenerator {
   placeWordAt(grid, solution, word, startRow, startCol, direction) {
     const [dRow, dCol] = direction;
 
-    for (let i = 0; i < word.length; i++) {
+    // Remove spaces from word for placement
+    const wordWithoutSpaces = word.replace(/\s/g, "");
+
+    for (let i = 0; i < wordWithoutSpaces.length; i++) {
       const row = startRow + i * dRow;
       const col = startCol + i * dCol;
 
-      grid[row][col] = word[i];
-      solution[row][col] = word[i];
+      grid[row][col] = wordWithoutSpaces[i];
+      solution[row][col] = wordWithoutSpaces[i];
     }
   }
 
