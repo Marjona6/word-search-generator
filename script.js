@@ -1080,16 +1080,13 @@ class WordSearchGenerator {
     const words = this.getWordList();
     const isLargePrint = this.getLargePrintPreference();
 
-    // Determine number of columns based on word count
-    let numColumns = 2;
-    if (words.length > 15) {
-      numColumns = 3;
-    }
+    // Always use at least 3 columns
+    let numColumns = 3;
 
     // Calculate height needed for the tallest column
     const wordsPerColumn = Math.ceil(words.length / numColumns);
-    const lineHeight = isLargePrint ? 0.25 : 0.18; // Match the line height used in addWordList
-    const spacing = isLargePrint ? 0.25 : 0.2; // Match the final spacing used in addWordList
+    const lineHeight = isLargePrint ? 0.35 : 0.25; // Match the line height used in addWordList
+    const spacing = isLargePrint ? 0.4 : 0.3; // Match the final spacing used in addWordList
 
     return wordsPerColumn * lineHeight + spacing; // Column height + spacing (no label)
   }
@@ -1106,15 +1103,12 @@ class WordSearchGenerator {
     doc.setFontSize(fontSizes.wordList);
     doc.setFont("helvetica", "normal"); // Use sans-serif for word lists (Verdana not available in jsPDF)
 
-    // Determine number of columns based on word count
-    let numColumns = 2;
-    if (words.length > 15) {
-      numColumns = 3;
-    }
+    // Always use at least 3 columns
+    let numColumns = 3;
 
-    // Calculate column width and spacing
+    // Calculate column width and spacing with better use of available space
     const columnWidth = contentWidth / numColumns;
-    const lineHeight = isLargePrint ? 0.25 : 0.18; // Reduced line height
+    const lineHeight = isLargePrint ? 0.35 : 0.25; // Increased line height for better spacing
 
     // Distribute words across columns
     const wordsPerColumn = Math.ceil(words.length / numColumns);
@@ -1141,8 +1135,8 @@ class WordSearchGenerator {
       totalActualWidth += wordWidth;
     }
 
-    // Add spacing between columns
-    const spacingBetweenColumns = 0.3;
+    // Add generous spacing between columns - use more available space
+    const spacingBetweenColumns = isLargePrint ? 0.6 : 0.5; // Much more spacing between columns
     totalActualWidth += (numColumns - 1) * spacingBetweenColumns;
 
     // Calculate starting position to center the word list
@@ -1168,7 +1162,7 @@ class WordSearchGenerator {
 
     // Calculate total height needed for the tallest column
     const maxWordsInAnyColumn = Math.ceil(words.length / numColumns);
-    const finalSpacing = isLargePrint ? 0.25 : 0.2; // Reduced final spacing
+    const finalSpacing = isLargePrint ? 0.4 : 0.3; // Increased final spacing
     y += maxWordsInAnyColumn * lineHeight + finalSpacing;
 
     return y;
