@@ -24,6 +24,7 @@ class WordSearchGenerator {
     this.reverseCheckbox = document.getElementById("reverse");
     this.showGridLinesCheckbox = document.getElementById("showGridLines");
     this.showGridBorderCheckbox = document.getElementById("showGridBorder");
+    this.largePrintCheckbox = document.getElementById("largePrint");
     this.generateBtn = document.getElementById("generateBtn");
     this.outlineFoundWordsCheckbox = document.getElementById("outlineFoundWords");
     this.colorFoundWordsCheckbox = document.getElementById("colorFoundWords");
@@ -179,6 +180,42 @@ class WordSearchGenerator {
    */
   getGridBorderPreference() {
     return this.showGridBorderCheckbox && this.showGridBorderCheckbox.checked;
+  }
+
+  /**
+   * Get large print preference
+   */
+  getLargePrintPreference() {
+    return this.largePrintCheckbox && this.largePrintCheckbox.checked;
+  }
+
+  /**
+   * Get font sizes based on large print preference
+   */
+  getFontSizes() {
+    const isLargePrint = this.getLargePrintPreference();
+
+    if (isLargePrint) {
+      return {
+        puzzleTitle: 28, // 22-26 pt
+        puzzleGrid: 22, // 20-24 pt
+        wordList: 20, // 18-20 pt
+        wordListLabel: 20, // 18-20 pt
+        solutionGrid: 18, // 16-18 pt
+        instructions: 20, // 18-20 pt
+        pageInfo: 16, // 14-16 pt
+      };
+    } else {
+      return {
+        puzzleTitle: 18, // Standard sizes
+        puzzleGrid: 8, // Standard grid size
+        wordList: 10, // Standard word list
+        wordListLabel: 12, // Standard label
+        solutionGrid: 8, // Standard solution
+        instructions: 12, // Standard instructions
+        pageInfo: 10, // Standard page info
+      };
+    }
   }
 
   /**
@@ -892,67 +929,86 @@ class WordSearchGenerator {
         format: "letter",
       });
 
-      // Set margins (1 inch on all sides)
-      const margin = 1;
+      // Set margins (optimized for 8.5x11" page)
+      const margin = 0.75; // Reduced from 1 inch
       const pageWidth = 8.5;
       const pageHeight = 11;
       const contentWidth = pageWidth - 2 * margin;
       const contentHeight = pageHeight - 2 * margin;
 
-      // Calculate grid size and cell size
+      // Get font sizes based on large print preference
+      const fontSizes = this.getFontSizes();
+
+      // Calculate grid size and cell size (adjust for large print)
       const gridSize = this.currentPuzzle.length;
-      const cellSize = Math.min(contentWidth / gridSize, 0.3); // Max 0.3 inches per cell
+      const isLargePrint = this.getLargePrintPreference();
+      const maxCellSize = isLargePrint ? 0.5 : 0.3; // Much larger cells for large print
+      const cellSize = Math.min(contentWidth / gridSize, maxCellSize);
       const gridWidth = gridSize * cellSize;
       const gridHeight = gridSize * cellSize;
       const gridX = margin + (contentWidth - gridWidth) / 2;
 
-      // Calculate content heights
-      const titleHeight = 0.4;
+      // Calculate content heights (optimized spacing)
+      const titleHeight = isLargePrint ? 0.5 : 0.35; // Reduced from 0.6/0.4
       const wordListHeight = this.calculateWordListHeight(contentWidth);
-      const puzzleLabelHeight = 0.3;
-      const solutionLabelHeight = 0.3;
-      const spacing = 0.3;
+      const minSpacing = isLargePrint ? 0.25 : 0.2; // Minimum spacing between elements
 
-      // Calculate total height needed
-      const totalHeight = titleHeight + wordListHeight + spacing + puzzleLabelHeight + gridHeight + spacing + solutionLabelHeight + gridHeight;
+      // Calculate maximum spacing between grid and word list
+      // We want to maximize space between grid and word list while keeping everything on the page
+      const totalContentHeight = titleHeight + gridHeight + wordListHeight;
+      const availableSpace = contentHeight - totalContentHeight;
+      const spacingBetweenGridAndWords = Math.max(minSpacing, availableSpace * 0.8); // Use 80% of available space
+
+      // Debug logging
+      console.log("PDF Layout Debug:", {
+        contentHeight,
+        titleHeight,
+        gridHeight,
+        wordListHeight,
+        totalContentHeight,
+        availableSpace,
+        spacingBetweenGridAndWords,
+        minSpacing,
+      });
+
+      // Calculate total height needed for multi-page check
+      const totalHeight = titleHeight + gridHeight + spacingBetweenGridAndWords + wordListHeight + minSpacing + titleHeight + gridHeight;
 
       // Check if we need multiple pages
       if (totalHeight > contentHeight) {
         // First page: Title, word list, and puzzle
-        let y = margin + 0.5;
+        let y = margin + 0.3; // Reduced from 0.5
 
         // Add title
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
+        doc.setFontSize(fontSizes.puzzleTitle);
+        doc.setFont("times", "bold"); // Use serif font for title
         const title = this.getPuzzleName();
         const titleWidth = doc.getTextWidth(title);
         const titleX = margin + (contentWidth - titleWidth) / 2;
         doc.text(title, titleX, y);
         y += titleHeight;
 
-        // Add word list
-        y = this.addWordList(doc, margin, y, contentWidth);
-
-        // Add puzzle grid
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Puzzle:", margin, y);
-        y += puzzleLabelHeight;
-
         // Draw puzzle grid
         this.drawGrid(doc, this.currentPuzzle, gridX, y, cellSize);
+        y += gridHeight + spacingBetweenGridAndWords;
+
+        // Add word list underneath the puzzle
+        y = this.addWordList(doc, margin, y, contentWidth);
 
         // Add new page for solution
         doc.addPage();
 
         // Second page: Solution
-        y = margin + 0.5;
+        y = margin + 0.3; // Reduced from 0.5
 
-        // Add solution grid
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Solution:", margin, y);
-        y += solutionLabelHeight;
+        // Add solution title (same as puzzle title)
+        doc.setFontSize(fontSizes.puzzleTitle);
+        doc.setFont("times", "bold"); // Use serif font for title
+        const solutionTitle = this.getPuzzleName();
+        const solutionTitleWidth = doc.getTextWidth(solutionTitle);
+        const solutionTitleX = margin + (contentWidth - solutionTitleWidth) / 2;
+        doc.text(solutionTitle, solutionTitleX, y);
+        y += titleHeight;
 
         // Draw solution grid with user's display preferences
         let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
@@ -960,35 +1016,33 @@ class WordSearchGenerator {
         this.drawGrid(doc, solutionDisplayGrid, gridX, y, cellSize, true, this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked);
       } else {
         // Single page: Everything fits
-        let y = margin + 0.5;
+        let y = margin + 0.3; // Reduced from 0.5
 
         // Add title
-        doc.setFontSize(18);
-        doc.setFont("helvetica", "bold");
+        doc.setFontSize(fontSizes.puzzleTitle);
+        doc.setFont("times", "bold"); // Use serif font for title
         const title = this.getPuzzleName();
         const titleWidth = doc.getTextWidth(title);
         const titleX = margin + (contentWidth - titleWidth) / 2;
         doc.text(title, titleX, y);
         y += titleHeight;
 
-        // Add word list
-        y = this.addWordList(doc, margin, y, contentWidth);
-
-        // Add puzzle grid
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Puzzle:", margin, y);
-        y += puzzleLabelHeight;
-
         // Draw puzzle grid
         this.drawGrid(doc, this.currentPuzzle, gridX, y, cellSize);
-        y += gridHeight + spacing;
+        y += gridHeight + spacingBetweenGridAndWords;
 
-        // Add solution grid
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Solution:", margin, y);
-        y += solutionLabelHeight;
+        // Add word list underneath the puzzle
+        y = this.addWordList(doc, margin, y, contentWidth);
+        y += minSpacing;
+
+        // Add solution title (same as puzzle title)
+        doc.setFontSize(fontSizes.puzzleTitle);
+        doc.setFont("times", "bold"); // Use serif font for title
+        const solutionTitle = this.getPuzzleName();
+        const solutionTitleWidth = doc.getTextWidth(solutionTitle);
+        const solutionTitleX = margin + (contentWidth - solutionTitleWidth) / 2;
+        doc.text(solutionTitle, solutionTitleX, y);
+        y += titleHeight;
 
         // Draw solution grid with user's display preferences
         let useSolutionGrid = this.hideOtherSolutionLettersCheckbox && this.hideOtherSolutionLettersCheckbox.checked;
@@ -1006,37 +1060,102 @@ class WordSearchGenerator {
   }
 
   /**
-   * Calculate the height needed for the word list
+   * Calculate the height needed for the word list in columns
    */
   calculateWordListHeight(contentWidth) {
     const words = this.getWordList();
-    const maxWordsPerLine = Math.floor(contentWidth / 0.6); // Approximate width per word
-    const lines = Math.ceil(words.length / maxWordsPerLine);
-    return 0.25 + lines * 0.2 + 0.3; // Label height + line heights + spacing
+    const isLargePrint = this.getLargePrintPreference();
+
+    // Determine number of columns based on word count
+    let numColumns = 2;
+    if (words.length > 15) {
+      numColumns = 3;
+    }
+
+    // Calculate height needed for the tallest column
+    const wordsPerColumn = Math.ceil(words.length / numColumns);
+    const lineHeight = isLargePrint ? 0.25 : 0.18; // Match the line height used in addWordList
+    const spacing = isLargePrint ? 0.25 : 0.2; // Match the final spacing used in addWordList
+
+    return wordsPerColumn * lineHeight + spacing; // Column height + spacing (no label)
   }
 
   /**
-   * Add word list to the PDF and return the new y position
+   * Add word list to the PDF in 2-3 columns and return the new y position
    */
   addWordList(doc, margin, y, contentWidth) {
     const words = this.getWordList();
+    const fontSizes = this.getFontSizes();
+    const isLargePrint = this.getLargePrintPreference();
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Words to find:", margin, y);
-    y += 0.25;
+    // Remove the "Words to find:" label - just show the words directly
+    doc.setFontSize(fontSizes.wordList);
+    doc.setFont("helvetica", "normal"); // Use sans-serif for word lists (Verdana not available in jsPDF)
 
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-
-    // Split words into lines that fit the page width
-    const maxWordsPerLine = Math.floor(contentWidth / 0.6); // Approximate width per word
-    for (let i = 0; i < words.length; i += maxWordsPerLine) {
-      const lineWords = words.slice(i, i + maxWordsPerLine);
-      doc.text(lineWords.join(", "), margin, y);
-      y += 0.2;
+    // Determine number of columns based on word count
+    let numColumns = 2;
+    if (words.length > 15) {
+      numColumns = 3;
     }
-    y += 0.3;
+
+    // Calculate column width and spacing
+    const columnWidth = contentWidth / numColumns;
+    const lineHeight = isLargePrint ? 0.25 : 0.18; // Reduced line height
+
+    // Distribute words across columns
+    const wordsPerColumn = Math.ceil(words.length / numColumns);
+
+    // First pass: calculate the actual width needed for each column
+    const columnWidths = [];
+    let totalActualWidth = 0;
+
+    for (let col = 0; col < numColumns; col++) {
+      const startIndex = col * wordsPerColumn;
+      const endIndex = Math.min(startIndex + wordsPerColumn, words.length);
+      const columnWords = words.slice(startIndex, endIndex);
+
+      if (columnWords.length === 0) {
+        columnWidths.push(0);
+        continue;
+      }
+
+      // Find the longest word in this column
+      const longestWord = columnWords.reduce((longest, word) => (word.length > longest.length ? word : longest), columnWords[0]);
+
+      const wordWidth = doc.getTextWidth(longestWord);
+      columnWidths.push(wordWidth);
+      totalActualWidth += wordWidth;
+    }
+
+    // Add spacing between columns
+    const spacingBetweenColumns = 0.3;
+    totalActualWidth += (numColumns - 1) * spacingBetweenColumns;
+
+    // Calculate starting position to center the word list
+    const startX = margin + (contentWidth - totalActualWidth) / 2;
+
+    // Second pass: draw the words
+    let currentX = startX;
+    for (let col = 0; col < numColumns; col++) {
+      const startIndex = col * wordsPerColumn;
+      const endIndex = Math.min(startIndex + wordsPerColumn, words.length);
+      const columnWords = words.slice(startIndex, endIndex);
+
+      if (columnWords.length === 0) continue;
+
+      // Add words in this column
+      for (let i = 0; i < columnWords.length; i++) {
+        doc.text(columnWords[i], currentX, y + i * lineHeight);
+      }
+
+      // Move to next column position
+      currentX += columnWidths[col] + spacingBetweenColumns;
+    }
+
+    // Calculate total height needed for the tallest column
+    const maxWordsInAnyColumn = Math.ceil(words.length / numColumns);
+    const finalSpacing = isLargePrint ? 0.25 : 0.2; // Reduced final spacing
+    y += maxWordsInAnyColumn * lineHeight + finalSpacing;
 
     return y;
   }
@@ -1047,6 +1166,14 @@ class WordSearchGenerator {
   drawGrid(doc, grid, startX, startY, cellSize, isSolution = false, hideOther = false) {
     const gridSize = grid.length;
     const showGridLines = this.getGridLinesPreference();
+    const showGridBorder = this.getGridBorderPreference();
+
+    // Draw outer border if user wants it
+    if (showGridBorder) {
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.02); // Slightly thicker for border
+      doc.rect(startX, startY, gridSize * cellSize, gridSize * cellSize);
+    }
 
     // Draw grid lines only if user wants them
     if (showGridLines) {
@@ -1054,13 +1181,13 @@ class WordSearchGenerator {
       doc.setLineWidth(0.01);
 
       // Vertical lines
-      for (let i = 0; i <= gridSize; i++) {
+      for (let i = 1; i < gridSize; i++) {
         const x = startX + i * cellSize;
         doc.line(x, startY, x, startY + gridSize * cellSize);
       }
 
       // Horizontal lines
-      for (let i = 0; i <= gridSize; i++) {
+      for (let i = 1; i < gridSize; i++) {
         const y = startY + i * cellSize;
         doc.line(startX, y, startX + gridSize * cellSize, y);
       }
@@ -1078,15 +1205,20 @@ class WordSearchGenerator {
     }
 
     // Add letters
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
+    const fontSizes = this.getFontSizes();
+    doc.setFontSize(fontSizes.puzzleGrid);
+    doc.setFont("helvetica", "bold"); // Use sans-serif for puzzle grid (Verdana not available in jsPDF)
 
     const colorFoundWords = this.colorFoundWordsCheckbox && this.colorFoundWordsCheckbox.checked;
+
+    const isLargePrint = this.getLargePrintPreference();
 
     for (let row = 0; row < gridSize; row++) {
       for (let col = 0; col < gridSize; col++) {
         const x = startX + col * cellSize + cellSize / 2;
-        const y = startY + row * cellSize + cellSize / 2 + 0.05; // Small offset for centering
+        // Add more vertical offset for large print to account for larger font
+        const verticalOffset = isLargePrint ? 0.08 : 0.05;
+        const y = startY + row * cellSize + cellSize / 2 + verticalOffset;
         let letter = grid[row][col];
         let isFound = foundPositions.has(`${row},${col}`);
         if (isSolution && hideOther && !isFound) {
@@ -1127,9 +1259,11 @@ class WordSearchGenerator {
         const dy = endYc - startYc;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const angle = Math.atan2(dy, dx);
-        const extension = cellSize * 0.4;
+        // Adjust capsule size for large print - make capsules larger for large print
+        const extension = isLargePrint ? cellSize * 0.5 : cellSize * 0.4;
         const capsuleLength = dist + extension * 2;
-        const capsuleWidth = cellSize * 0.7;
+        // Adjust capsule width for large print - make capsules wider for large print
+        const capsuleWidth = isLargePrint ? cellSize * 0.9 : cellSize * 0.7;
         const r = capsuleWidth / 2;
 
         // Capsule center
