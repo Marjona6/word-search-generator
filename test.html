@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Capsule Positioning Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #f5f5f5;
+      }
+      .test-container {
+        background: white;
+        padding: 20px;
+        margin: 20px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      .grid-container {
+        position: relative;
+        display: inline-block;
+        margin: 20px;
+        border: 2px solid #ddd;
+        padding: 10px;
+      }
+      table {
+        border-collapse: collapse;
+        position: relative;
+      }
+      td {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #ccc;
+        text-align: center;
+        vertical-align: middle;
+        font-weight: bold;
+        font-size: 14px;
+        position: relative;
+      }
+      .diagonal-capsule-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0.85;
+      }
+      .capsule-canvas-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0.85;
+      }
+      button {
+        margin: 5px;
+        padding: 8px 16px;
+        font-size: 14px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      .debug-info {
+        background: #f8f9fa;
+        padding: 10px;
+        margin: 10px 0;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+      .test-section {
+        margin: 20px 0;
+        padding: 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+      }
+      .test-section h3 {
+        margin-top: 0;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>SVG Capsule Positioning Test</h1>
+    <p>This page tests different approaches to fix the progressive positioning error in diagonal word capsules.</p>
+
+    <div class="test-container">
+      <h2>Test Controls</h2>
+      <button onclick="generateTestPuzzle()">Generate Test Puzzle</button>
+      <button onclick="showSolution()">Show Solution</button>
+      <button onclick="testOriginal()">Test Original Method</button>
+      <button onclick="testHypothesis1()">Test Hypothesis 1 (Actual Sizes)</button>
+      <button onclick="testHypothesis2()">Test Hypothesis 2 (Border Offset)</button>
+      <button onclick="testHypothesis3()">Test Hypothesis 3 (Bounding Rect)</button>
+      <button onclick="debugPositioning()">Debug Positioning</button>
+      <button onclick="clearOverlays()">Clear Overlays</button>
+      <button onclick="window.print()">Print Test</button>
+    </div>
+
+    <div class="test-section">
+      <h3>Test Grid</h3>
+      <div class="grid-container">
+        <table id="testGrid">
+          <tr>
+            <td data-row="0" data-col="0">A</td>
+            <td data-row="0" data-col="1">B</td>
+            <td data-row="0" data-col="2">C</td>
+            <td data-row="0" data-col="3">D</td>
+            <td data-row="0" data-col="4">E</td>
+          </tr>
+          <tr>
+            <td data-row="1" data-col="0">F</td>
+            <td data-row="1" data-col="1">G</td>
+            <td data-row="1" data-col="2">H</td>
+            <td data-row="1" data-col="3">I</td>
+            <td data-row="1" data-col="4">J</td>
+          </tr>
+          <tr>
+            <td data-row="2" data-col="0">K</td>
+            <td data-row="2" data-col="1">L</td>
+            <td data-row="2" data-col="2">M</td>
+            <td data-row="2" data-col="3">N</td>
+            <td data-row="2" data-col="4">O</td>
+          </tr>
+          <tr>
+            <td data-row="3" data-col="0">P</td>
+            <td data-row="3" data-col="1">Q</td>
+            <td data-row="3" data-col="2">R</td>
+            <td data-row="3" data-col="3">S</td>
+            <td data-row="3" data-col="4">T</td>
+          </tr>
+          <tr>
+            <td data-row="4" data-col="0">U</td>
+            <td data-row="4" data-col="1">V</td>
+            <td data-row="4" data-col="2">W</td>
+            <td data-row="4" data-col="3">X</td>
+            <td data-row="4" data-col="4">Y</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <div class="test-section">
+      <h3>Debug Information</h3>
+      <div id="debugOutput" class="debug-info">Click "Debug Positioning" to see detailed information...</div>
+    </div>
+
+    <script>
+      // Test data - diagonal words
+      const testWords = [
+        { word: "HELLO", startRow: 0, startCol: 0, dRow: 1, dCol: 1, length: 5 },
+        { word: "WORLD", startRow: 0, startCol: 4, dRow: 1, dCol: -1, length: 5 },
+        { word: "TEST", startRow: 1, startCol: 0, dRow: 1, dCol: 1, length: 4 },
+      ];
+
+      function generateTestPuzzle() {
+        console.log("Generating test puzzle...");
+        // This would normally generate a real puzzle
+        document.getElementById("debugOutput").textContent = "Test puzzle generated with diagonal words: HELLO, WORLD, TEST";
+      }
+
+      function showSolution() {
+        console.log("Showing solution...");
+        // This would show the solution grid
+      }
+
+      function testOriginal() {
+        console.log("Testing original method...");
+        clearOverlays();
+        renderDiagonalCapsuleSVGsOriginal();
+      }
+
+      function testHypothesis1() {
+        console.log("Testing Hypothesis 1: Actual cell sizes...");
+        clearOverlays();
+        renderDiagonalCapsuleSVGsActualSizes();
+      }
+
+      function testHypothesis2() {
+        console.log("Testing Hypothesis 2: Border offset...");
+        clearOverlays();
+        renderDiagonalCapsuleSVGsBorderOffset();
+      }
+
+      function testHypothesis3() {
+        console.log("Testing Hypothesis 3: Bounding rect...");
+        clearOverlays();
+        renderDiagonalCapsuleSVGsBoundingRect();
+      }
+
+      function debugPositioning() {
+        console.log("Debugging positioning...");
+        const debugInfo = collectDebugInfo();
+        document.getElementById("debugOutput").textContent = debugInfo;
+      }
+
+      function clearOverlays() {
+        const table = document.getElementById("testGrid");
+        const overlays = table.querySelectorAll(".diagonal-capsule-overlay, .capsule-canvas-overlay");
+        overlays.forEach((overlay) => overlay.remove());
+      }
+
+      function renderDiagonalCapsuleSVGsOriginal() {
+        const table = document.getElementById("testGrid");
+        const cell = table.querySelector("td");
+        const computedStyle = window.getComputedStyle(cell);
+        const cellSize = parseInt(computedStyle.width) || 30;
+        const cellHeight = parseInt(computedStyle.height) || cellSize;
+
+        for (const info of testWords) {
+          const { startRow, startCol, dRow, dCol, length } = info;
+          const endRow = startRow + (length - 1) * dRow;
+          const endCol = startCol + (length - 1) * dCol;
+
+          // Original calculation method
+          const startX = startCol * cellSize + cellSize / 2;
+          const startY = startRow * cellHeight + cellHeight / 2;
+          const endX = endCol * cellSize + cellSize / 2;
+          const endY = endRow * cellHeight + cellHeight / 2;
+
+          createSVGCapsule(table, startX, startY, endX, endY, cellHeight, info.word);
+        }
+      }
+
+      function renderDiagonalCapsuleSVGsActualSizes() {
+        const table = document.getElementById("testGrid");
+        const cell = table.querySelector("td");
+        const actualCellWidth = cell.offsetWidth;
+        const actualCellHeight = cell.offsetHeight;
+
+        for (const info of testWords) {
+          const { startRow, startCol, dRow, dCol, length } = info;
+          const endRow = startRow + (length - 1) * dRow;
+          const endCol = startCol + (length - 1) * dCol;
+
+          // Using actual rendered sizes
+          const startX = startCol * actualCellWidth + actualCellWidth / 2;
+          const startY = startRow * actualCellHeight + actualCellHeight / 2;
+          const endX = endCol * actualCellWidth + actualCellWidth / 2;
+          const endY = endRow * actualCellHeight + actualCellHeight / 2;
+
+          createSVGCapsule(table, startX, startY, endX, endY, actualCellHeight, info.word);
+        }
+      }
+
+      function renderDiagonalCapsuleSVGsBorderOffset() {
+        const table = document.getElementById("testGrid");
+        const cell = table.querySelector("td");
+        const tableStyle = window.getComputedStyle(table);
+        const cellStyle = window.getComputedStyle(cell);
+
+        const tableBorderLeft = parseInt(tableStyle.borderLeftWidth) || 0;
+        const tableBorderTop = parseInt(tableStyle.borderTopWidth) || 0;
+        const tablePaddingLeft = parseInt(tableStyle.paddingLeft) || 0;
+        const tablePaddingTop = parseInt(tableStyle.paddingTop) || 0;
+
+        const cellBorderLeft = parseInt(cellStyle.borderLeftWidth) || 0;
+        const cellBorderTop = parseInt(cellStyle.borderTopWidth) || 0;
+        const cellPaddingLeft = parseInt(cellStyle.paddingLeft) || 0;
+        const cellPaddingTop = parseInt(cellStyle.paddingTop) || 0;
+
+        const totalOffsetX = tableBorderLeft + tablePaddingLeft + cellBorderLeft + cellPaddingLeft;
+        const totalOffsetY = tableBorderTop + tablePaddingTop + cellBorderTop + cellPaddingTop;
+
+        const actualCellWidth = cell.offsetWidth;
+        const actualCellHeight = cell.offsetHeight;
+
+        for (const info of testWords) {
+          const { startRow, startCol, dRow, dCol, length } = info;
+          const endRow = startRow + (length - 1) * dRow;
+          const endCol = startCol + (length - 1) * dCol;
+
+          // With border/padding offset
+          const startX = totalOffsetX + startCol * actualCellWidth + actualCellWidth / 2;
+          const startY = totalOffsetY + startRow * actualCellHeight + actualCellHeight / 2;
+          const endX = totalOffsetX + endCol * actualCellWidth + actualCellWidth / 2;
+          const endY = totalOffsetY + endRow * actualCellHeight + actualCellHeight / 2;
+
+          createSVGCapsule(table, startX, startY, endX, endY, actualCellHeight, info.word);
+        }
+      }
+
+      function renderDiagonalCapsuleSVGsBoundingRect() {
+        const table = document.getElementById("testGrid");
+        const tableRect = table.getBoundingClientRect();
+
+        for (const info of testWords) {
+          const { startRow, startCol, dRow, dCol, length } = info;
+          const endRow = startRow + (length - 1) * dRow;
+          const endCol = startCol + (length - 1) * dCol;
+
+          // Get actual cell positions using getBoundingClientRect
+          const startCell = table.querySelector(`td[data-row="${startRow}"][data-col="${startCol}"]`);
+          const endCell = table.querySelector(`td[data-row="${endRow}"][data-col="${endCol}"]`);
+
+          if (!startCell || !endCell) continue;
+
+          const startCellRect = startCell.getBoundingClientRect();
+          const endCellRect = endCell.getBoundingClientRect();
+
+          // Calculate positions relative to the table
+          const startX = startCellRect.left - tableRect.left + startCellRect.width / 2;
+          const startY = startCellRect.top - tableRect.top + startCellRect.height / 2;
+          const endX = endCellRect.left - tableRect.left + endCellRect.width / 2;
+          const endY = endCellRect.top - tableRect.top + endCellRect.height / 2;
+
+          createSVGCapsule(table, startX, startY, endX, endY, startCellRect.height, info.word);
+        }
+      }
+
+      function createSVGCapsule(table, startX, startY, endX, endY, cellHeight, word) {
+        const extension = cellHeight * 0.4;
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+        const capsuleLength = dist + extension * 2;
+        const capsuleWidth = cellHeight * 0.7;
+        const cx = (startX + endX) / 2;
+        const cy = (startY + endY) / 2;
+
+        console.log(`Creating capsule for "${word}":`, {
+          start: [startX, startY],
+          end: [endX, endY],
+          center: [cx, cy],
+          length: capsuleLength,
+          width: capsuleWidth,
+          angle: angle,
+        });
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("width", table.offsetWidth);
+        svg.setAttribute("height", table.offsetHeight);
+        svg.style.position = "absolute";
+        svg.style.left = "0px";
+        svg.style.top = "0px";
+        svg.style.pointerEvents = "none";
+        svg.classList.add("diagonal-capsule-overlay");
+        svg.style.zIndex = 10;
+
+        const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        rect.setAttribute("x", cx - capsuleLength / 2);
+        rect.setAttribute("y", cy - capsuleWidth / 2);
+        rect.setAttribute("width", capsuleLength);
+        rect.setAttribute("height", capsuleWidth);
+        rect.setAttribute("rx", capsuleWidth / 2);
+        rect.setAttribute("ry", capsuleWidth / 2);
+        rect.setAttribute("fill", "none");
+        rect.setAttribute("stroke", "#000");
+        rect.setAttribute("stroke-width", cellHeight * 0.15);
+        rect.setAttribute("opacity", "0.85");
+        rect.setAttribute("transform", `rotate(${angle} ${cx} ${cy})`);
+        svg.appendChild(rect);
+
+        table.style.position = "relative";
+        table.appendChild(svg);
+      }
+
+      function collectDebugInfo() {
+        const table = document.getElementById("testGrid");
+        const cell = table.querySelector("td");
+        const computedStyle = window.getComputedStyle(cell);
+        const tableStyle = window.getComputedStyle(table);
+
+        const info = {
+          cell: {
+            computedWidth: parseInt(computedStyle.width),
+            computedHeight: parseInt(computedStyle.height),
+            offsetWidth: cell.offsetWidth,
+            offsetHeight: cell.offsetHeight,
+            clientWidth: cell.clientWidth,
+            clientHeight: cell.clientHeight,
+            border: computedStyle.border,
+            padding: computedStyle.padding,
+            boxSizing: computedStyle.boxSizing,
+          },
+          table: {
+            offsetWidth: table.offsetWidth,
+            offsetHeight: table.offsetHeight,
+            border: tableStyle.border,
+            padding: tableStyle.padding,
+            borderCollapse: tableStyle.borderCollapse,
+          },
+          boundingRects: {
+            cell: cell.getBoundingClientRect(),
+            table: table.getBoundingClientRect(),
+          },
+        };
+
+        return JSON.stringify(info, null, 2);
+      }
+
+      // Auto-generate test puzzle on load
+      window.addEventListener("load", () => {
+        setTimeout(generateTestPuzzle, 500);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Debug Word Search Capsules</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      .grid-container {
+        position: relative;
+        display: inline-block;
+        margin: 20px;
+      }
+      table {
+        border-collapse: collapse;
+        position: relative;
+      }
+      td {
+        width: 30px;
+        height: 30px;
+        border: 1px solid #ccc;
+        text-align: center;
+        vertical-align: middle;
+        font-weight: bold;
+        font-size: 14px;
+      }
+      .capsule-canvas-overlay {
+        position: absolute;
+        left: 0;
+        top: 0;
+        z-index: 10;
+        pointer-events: none;
+        opacity: 0.85;
+      }
+      @media print {
+        .capsule-canvas-overlay {
+          display: block !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+          position: absolute !important;
+          z-index: 10 !important;
+          pointer-events: none !important;
+        }
+      }
+      button {
+        margin: 10px;
+        padding: 10px 20px;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Debug Word Search Capsules</h1>
+    <p>This page tests the capsule outline functionality for diagonal words.</p>
+
+    <button onclick="testCapsules()">Test Capsules</button>
+    <button onclick="window.print()">Print Test</button>
+
+    <div class="grid-container">
+      <table id="testGrid">
+        <tr>
+          <td>A</td>
+          <td>B</td>
+          <td>C</td>
+          <td>D</td>
+          <td>E</td>
+        </tr>
+        <tr>
+          <td>F</td>
+          <td>G</td>
+          <td>H</td>
+          <td>I</td>
+          <td>J</td>
+        </tr>
+        <tr>
+          <td>K</td>
+          <td>L</td>
+          <td>M</td>
+          <td>N</td>
+          <td>O</td>
+        </tr>
+        <tr>
+          <td>P</td>
+          <td>Q</td>
+          <td>R</td>
+          <td>S</td>
+          <td>T</td>
+        </tr>
+        <tr>
+          <td>U</td>
+          <td>V</td>
+          <td>W</td>
+          <td>X</td>
+          <td>Y</td>
+        </tr>
+      </table>
+    </div>
+
+    <script>
+      function testCapsules() {
+        const table = document.getElementById("testGrid");
+        const cell = table.querySelector("td");
+        const cellSize = 30;
+        const cellHeight = 30;
+
+        // Remove any existing canvas
+        const oldCanvas = table.querySelector(".capsule-canvas-overlay");
+        if (oldCanvas) oldCanvas.remove();
+
+        // Create canvas
+        const canvas = document.createElement("canvas");
+        canvas.width = table.offsetWidth;
+        canvas.height = table.offsetHeight;
+        canvas.style.position = "absolute";
+        canvas.style.left = "0px";
+        canvas.style.top = "0px";
+        canvas.style.pointerEvents = "none";
+        canvas.className = "capsule-canvas-overlay";
+        canvas.style.zIndex = 10;
+
+        // Make table position relative
+        table.style.position = "relative";
+
+        const ctx = canvas.getContext("2d");
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = cellHeight * 0.15;
+
+        // Test diagonal word: "HELLO" from (0,0) to (4,4)
+        const startRow = 0,
+          startCol = 0;
+        const endRow = 4,
+          endCol = 4;
+        const length = 5;
+
+        // Calculate positions
+        const startX = startCol * cellSize + cellSize / 2;
+        const startY = startRow * cellHeight + cellHeight / 2;
+        const endX = endCol * cellSize + cellSize / 2;
+        const endY = endRow * cellHeight + cellHeight / 2;
+
+        console.log(`Diagonal word: start(${startX},${startY}) end(${endX},${endY})`);
+
+        // Capsule parameters
+        const extension = cellHeight * 0.4;
+        const dx = endX - startX;
+        const dy = endY - startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        const capsuleLength = dist + extension * 2;
+        const capsuleWidth = cellHeight * 0.7;
+        const cx = (startX + endX) / 2;
+        const cy = (startY + endY) / 2;
+
+        console.log(`Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${(angle * 180) / Math.PI}°`);
+
+        // Draw capsule
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(angle);
+        drawCapsule(ctx, -capsuleLength / 2, -capsuleWidth / 2, capsuleLength, capsuleWidth, capsuleWidth / 2);
+        ctx.restore();
+
+        table.appendChild(canvas);
+        console.log("Canvas overlay added");
+      }
+
+      function drawCapsule(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      // Auto-test on load
+      window.addEventListener("load", () => {
+        setTimeout(testCapsules, 500);
+      });
+    </script>
+  </body>
+</html>
