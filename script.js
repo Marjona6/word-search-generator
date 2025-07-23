@@ -112,6 +112,15 @@ class WordSearchGenerator {
           const warningMessage = `Successfully placed ${placedCount} out of ${totalCount} words. Could not place: ${result.failedWords.join(", ")}. Try increasing the grid size, adding more direction options, or reducing the number of words.`;
           this.showError(warningMessage);
         }
+
+        // Log placement statistics for debugging
+        console.log(`Puzzle generation complete: ${result.placedWords.length}/${words.length} words placed`);
+        if (result.placedWordInfos && result.placedWordInfos.length > 0) {
+          const totalOverlap = result.placedWordInfos.reduce((sum, info) => {
+            return sum + this.countOverlap(result.puzzle, info.word, info.startRow, info.startCol, [info.dRow, info.dCol]);
+          }, 0);
+          console.log(`Total overlap achieved: ${totalOverlap} letters`);
+        }
       } else {
         this.showError(result.error);
       }
@@ -199,7 +208,7 @@ class WordSearchGenerator {
    * Create the word search puzzle with improved algorithm
    */
   createPuzzle(words, size, directions) {
-    const attemptsPerWord = 1000;
+    const attemptsPerWord = 2000; // Increased from 1000 to give more chances for placement
 
     // Try multiple full generations, keep the best
     let bestGrid = null;
@@ -209,7 +218,8 @@ class WordSearchGenerator {
     let bestScore = -1;
     let bestWordInfos = [];
 
-    for (let attempt = 0; attempt < 10; attempt++) {
+    for (let attempt = 0; attempt < 15; attempt++) {
+      // Increased from 10 to 15 attempts
       try {
         const result = this.createWordSearch(words, size, directions, attemptsPerWord);
 
@@ -298,17 +308,12 @@ class WordSearchGenerator {
   }
 
   /**
-   * Smart word placement with overlap optimization
+   * Smart word placement with overlap optimization (improved algorithm)
    */
   placeWordSmart(grid, solution, word, directionVectors) {
     const size = grid.length;
     let best = [];
-    let bestScore = -1;
-
-    // Calculate current grid density
-    const filledCells = this.countFilledCells(grid);
-    const totalCells = size * size;
-    const density = filledCells / totalCells;
+    let bestOverlap = -1;
 
     // Shuffle directions for more randomness
     const shuffledDirections = [...directionVectors];
@@ -323,30 +328,38 @@ class WordSearchGenerator {
     }
     this.shuffleArray(positions);
 
+    // First pass: find positions with maximum overlap
     for (const [dRow, dCol] of shuffledDirections) {
       for (const [row, col] of positions) {
         if (this.canPlaceWord(grid, word, row, col, [dRow, dCol])) {
           const overlap = this.countOverlap(grid, word, row, col, [dRow, dCol]);
-          const spacing = this.calculateSpacingScore(grid, word, row, col, [dRow, dCol]);
 
-          // Score based on density: prefer overlap when dense, spacing when sparse
-          let score;
-          if (density < 0.3) {
-            // Low density: prefer spacing over overlap
-            score = spacing * 2 + overlap;
-          } else if (density < 0.6) {
-            // Medium density: balance spacing and overlap
-            score = spacing + overlap * 1.5;
-          } else {
-            // High density: prefer overlap to fit words
-            score = overlap * 2 + spacing * 0.5;
-          }
-
-          if (score > bestScore) {
+          if (overlap > bestOverlap) {
             best = [[row, col, dRow, dCol]];
-            bestScore = score;
-          } else if (score === bestScore) {
+            bestOverlap = overlap;
+          } else if (overlap === bestOverlap) {
             best.push([row, col, dRow, dCol]);
+          }
+        }
+      }
+    }
+
+    // If no overlap found, try again with spacing consideration
+    if (bestOverlap === 0) {
+      let bestSpacing = -1;
+      best = [];
+
+      for (const [dRow, dCol] of shuffledDirections) {
+        for (const [row, col] of positions) {
+          if (this.canPlaceWord(grid, word, row, col, [dRow, dCol])) {
+            const spacing = this.calculateSpacingScore(grid, word, row, col, [dRow, dCol]);
+
+            if (spacing > bestSpacing) {
+              best = [[row, col, dRow, dCol]];
+              bestSpacing = spacing;
+            } else if (spacing === bestSpacing) {
+              best.push([row, col, dRow, dCol]);
+            }
           }
         }
       }
