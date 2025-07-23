@@ -48,7 +48,6 @@ class WordSearchGenerator {
     // Add debugging for download button
     if (this.downloadBtn) {
       this.downloadBtn.addEventListener("click", () => {
-        console.log("Download button clicked");
         this.downloadPDF();
       });
     } else {
@@ -582,16 +581,14 @@ class WordSearchGenerator {
    * Render SVG capsule overlays for found words in the solution grid
    */
   renderCapsuleOverlay() {
-    console.log("renderCapsuleOverlay called");
-
     const table = this.solutionGrid.querySelector("table");
     if (!table) {
-      console.log("No table found in solutionGrid");
+      console.warn("No table found in solutionGrid");
       return;
     }
     const cell = table.querySelector("td");
     if (!cell) {
-      console.log("No cell found in table");
+      console.warn("No cell found in table");
       return;
     }
 
@@ -600,8 +597,6 @@ class WordSearchGenerator {
     const cellSize = parseInt(computedStyle.width) || 30;
     const computedCellHeight = parseInt(computedStyle.height) || cellSize;
     const gridSize = this.currentPuzzle ? this.currentPuzzle.length : 15;
-
-    console.log(`Cell size: ${cellSize}, Cell height: ${computedCellHeight}`);
 
     // Remove any existing overlay
     const oldOverlay = table.querySelector(".capsule-overlay");
@@ -637,9 +632,6 @@ class WordSearchGenerator {
       const startY = startRow * cellSize + cellSize / 2;
       const endX = endCol * cellSize + cellSize / 2;
       const endY = endRow * cellSize + cellSize / 2;
-
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  Calculated positions: start(${startX},${startY}) end(${endX},${endY})`);
 
       // Capsule parameters
       const extension = computedCellHeight * 0.4;
@@ -698,26 +690,23 @@ class WordSearchGenerator {
    * Render capsule outlines using a canvas overlay
    */
   renderCapsuleCanvasOverlay() {
-    console.log("renderCapsuleCanvasOverlay called");
-
     // Remove any existing canvas overlay
     const oldCanvas = this.solutionGrid.querySelector(".capsule-canvas-overlay");
     if (oldCanvas) oldCanvas.remove();
 
     const table = this.solutionGrid.querySelector("table");
     if (!table) {
-      console.log("No table found in solutionGrid");
+      console.warn("No table found in solutionGrid");
       return;
     }
     const cell = table.querySelector("td");
     if (!cell) {
-      console.log("No cell found in table");
+      console.warn("No cell found in table");
       return;
     }
 
     // Wait for table to be fully rendered
     if (table.offsetWidth === 0 || table.offsetHeight === 0) {
-      console.log("Table not ready, retrying canvas overlay in 100ms");
       setTimeout(() => this.renderCapsuleCanvasOverlay(), 100);
       return;
     }
@@ -726,9 +715,6 @@ class WordSearchGenerator {
     const cellSize = cell.offsetWidth;
     const cellHeight = cell.offsetHeight;
     const gridSize = this.currentPuzzle ? this.currentPuzzle.length : 15;
-
-    console.log(`Cell size: ${cellSize}, Cell height: ${cellHeight}, Grid size: ${gridSize}`);
-    console.log(`Table size: ${table.offsetWidth}x${table.offsetHeight}`);
 
     // Create SVG overlay instead of canvas for better print compatibility
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -746,9 +732,6 @@ class WordSearchGenerator {
     // Make table position: relative to contain the overlay
     table.style.position = "relative";
 
-    console.log(`SVG size: ${table.offsetWidth}x${table.offsetHeight}`);
-    console.log(`Placed word infos:`, this.placedWordInfos);
-
     for (const info of this.placedWordInfos) {
       const { startRow, startCol, dRow, dCol, length } = info;
       const endRow = startRow + (length - 1) * dRow;
@@ -760,9 +743,6 @@ class WordSearchGenerator {
       const endX = endCol * cellSize + cellSize / 2;
       const endY = endRow * cellHeight + cellHeight / 2;
 
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  Calculated positions: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const extension = cellHeight * 0.4;
       const dx = endX - startX;
@@ -772,8 +752,6 @@ class WordSearchGenerator {
       const capsuleLength = dist + extension * 2;
       const capsuleWidth = cellHeight * 0.7;
       const radius = capsuleWidth / 2;
-
-      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create proper capsule shape using SVG path
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -809,7 +787,6 @@ class WordSearchGenerator {
     }
 
     table.appendChild(svg);
-    console.log("SVG overlay added to table");
   }
 
   /**
@@ -936,8 +913,6 @@ class WordSearchGenerator {
    * Test Hypothesis 1: Use actual rendered cell sizes instead of computed styles
    */
   renderDiagonalCapsuleSVGsWithBorderOffset(container, table, diagonalCapsules) {
-    console.log("Testing Hypothesis 2: Accounting for table borders and padding");
-
     // Remove any existing diagonal overlays
     const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
     oldOverlays.forEach((el) => el.remove());
@@ -959,19 +934,12 @@ class WordSearchGenerator {
     const cellPaddingLeft = parseInt(cellStyle.paddingLeft) || 0;
     const cellPaddingTop = parseInt(cellStyle.paddingTop) || 0;
 
-    console.log("Border and padding offsets:", {
-      table: { borderLeft: tableBorderLeft, borderTop: tableBorderTop, paddingLeft: tablePaddingLeft, paddingTop: tablePaddingTop },
-      cell: { borderLeft: cellBorderLeft, borderTop: cellBorderTop, paddingLeft: cellPaddingLeft, paddingTop: cellPaddingTop },
-    });
-
     const actualCellWidth = cell.offsetWidth;
     const actualCellHeight = cell.offsetHeight;
 
     // Calculate total offset from table origin
     const totalOffsetX = tableBorderLeft + tablePaddingLeft + cellBorderLeft + cellPaddingLeft;
     const totalOffsetY = tableBorderTop + tablePaddingTop + cellBorderTop + cellPaddingTop;
-
-    console.log("Total offsets:", { x: totalOffsetX, y: totalOffsetY });
 
     for (const info of diagonalCapsules) {
       const { startRow, startCol, dRow, dCol, length } = info;
@@ -984,9 +952,6 @@ class WordSearchGenerator {
       const endX = totalOffsetX + endCol * actualCellWidth + actualCellWidth / 2;
       const endY = totalOffsetY + endRow * actualCellHeight + actualCellHeight / 2;
 
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  With border offset: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const extension = actualCellHeight * 0.4;
       const dx = endX - startX;
@@ -997,8 +962,6 @@ class WordSearchGenerator {
       const capsuleWidth = actualCellHeight * 0.7;
       const cx = (startX + endX) / 2;
       const cy = (startY + endY) / 2;
-
-      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create SVG
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1051,8 +1014,6 @@ class WordSearchGenerator {
    * Test Hypothesis 3: Use getBoundingClientRect for accurate positioning
    */
   renderDiagonalCapsuleSVGsWithBoundingRect(container, table, diagonalCapsules) {
-    console.log("Testing Hypothesis 3: Using getBoundingClientRect for accurate positioning");
-
     // Remove any existing diagonal overlays
     const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
     oldOverlays.forEach((el) => el.remove());
@@ -1060,12 +1021,6 @@ class WordSearchGenerator {
     // Get the table's bounding rect to understand its actual position
     const tableRect = table.getBoundingClientRect();
     const containerRect = this.solutionGrid.getBoundingClientRect();
-
-    console.log("Bounding rectangles:", {
-      table: { left: tableRect.left, top: tableRect.top, width: tableRect.width, height: tableRect.height },
-      container: { left: containerRect.left, top: containerRect.top, width: containerRect.width, height: containerRect.height },
-      offset: { left: tableRect.left - containerRect.left, top: tableRect.top - containerRect.top },
-    });
 
     for (const info of diagonalCapsules) {
       const { startRow, startCol, dRow, dCol, length } = info;
@@ -1077,7 +1032,7 @@ class WordSearchGenerator {
       const endCell = table.querySelector(`td[data-row="${endRow}"][data-col="${endCol}"]`);
 
       if (!startCell || !endCell) {
-        console.log(`Could not find cells for word "${info.word}"`);
+        console.warn(`Could not find cells for word "${info.word}"`);
         continue;
       }
 
@@ -1090,9 +1045,6 @@ class WordSearchGenerator {
       const endX = endCellRect.left - tableRect.left + endCellRect.width / 2;
       const endY = endCellRect.top - tableRect.top + endCellRect.height / 2;
 
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  Using bounding rect: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const cellHeight = startCellRect.height;
       const extension = cellHeight * 0.4;
@@ -1104,8 +1056,6 @@ class WordSearchGenerator {
       const capsuleWidth = cellHeight * 0.7;
       const cx = (startX + endX) / 2;
       const cy = (startY + endY) / 2;
-
-      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create SVG
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1166,7 +1116,6 @@ class WordSearchGenerator {
       toggleBtn.textContent = "Hide Solution";
       // Render ALL capsules with viewBox after a short delay to ensure grid is fully rendered
       if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-        console.log("Rendering ALL capsules with viewBox for solution display");
         setTimeout(() => {
           const table = this.solutionGrid.querySelector("table");
           if (table) {
@@ -1184,8 +1133,6 @@ class WordSearchGenerator {
    * Print the puzzle
    */
   printPuzzle() {
-    console.log("printPuzzle called");
-
     // Ensure we have content to print
     if (!this.currentPuzzle || !this.currentSolution) {
       this.showError("No puzzle generated yet. Please generate a puzzle first.");
@@ -1194,14 +1141,11 @@ class WordSearchGenerator {
 
     // Ensure solution is visible for print
     if (this.solutionGrid.classList.contains("hidden")) {
-      console.log("Solution was hidden, showing it for print");
       this.solutionGrid.classList.remove("hidden");
     }
 
     // Force re-render of ALL capsules for print
     if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-      console.log("Force rendering ALL capsules for print");
-
       // First, remove any existing overlays
       const existingOverlays = this.solutionGrid.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
       existingOverlays.forEach((overlay) => overlay.remove());
@@ -1210,21 +1154,17 @@ class WordSearchGenerator {
       setTimeout(() => {
         const table = this.solutionGrid.querySelector("table");
         if (table) {
-          console.log("Rendering ALL capsules with viewBox for print");
           this.renderAllCapsulesWithViewBox(this.solutionGrid, table);
 
           // Give the overlays a moment to render before printing
           setTimeout(() => {
-            console.log("Calling window.print()");
             window.print();
           }, 500);
         } else {
-          console.log("No table found for print");
           window.print();
         }
       }, 100);
     } else {
-      console.log("Calling window.print()");
       window.print();
     }
   }
@@ -1233,16 +1173,11 @@ class WordSearchGenerator {
    * Download puzzle as PDF using jsPDF
    */
   downloadPDF() {
-    console.log("downloadPDF method called");
-
     // Ensure we have content to generate
     if (!this.currentPuzzle || !this.currentSolution) {
-      console.log("No puzzle data available");
       this.showError("No puzzle generated yet. Please generate a puzzle first.");
       return;
     }
-
-    console.log("Puzzle data available, starting PDF generation");
 
     try {
       // Check if jsPDF is available
@@ -1254,7 +1189,6 @@ class WordSearchGenerator {
 
       // Create new jsPDF document (8.5x11 inches)
       const { jsPDF } = window.jspdf;
-      console.log("jsPDF library loaded successfully");
 
       const doc = new jsPDF({
         orientation: "portrait",
@@ -1367,9 +1301,7 @@ class WordSearchGenerator {
       }
 
       // Save the PDF
-      console.log("Attempting to save PDF...");
       doc.save("word-search-puzzle.pdf");
-      console.log("PDF saved successfully");
     } catch (error) {
       console.error("PDF generation error:", error);
       console.error("Error details:", error.message, error.stack);
@@ -1718,7 +1650,6 @@ class WordSearchGenerator {
    */
   forceRenderCapsules() {
     if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
-      console.log("Force rendering ALL capsule overlays with viewBox");
       setTimeout(() => {
         const table = this.solutionGrid.querySelector("table");
         if (table) {
@@ -1732,15 +1663,12 @@ class WordSearchGenerator {
    * Fixed diagonal capsule rendering with proper timing and sizing
    */
   renderDiagonalCapsuleSVGsFixed(container, table, diagonalCapsules) {
-    console.log("Rendering diagonal capsules with fixed timing and sizing");
-
     // Remove any existing diagonal overlays
     const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
     oldOverlays.forEach((el) => el.remove());
 
     // Wait for table to be fully rendered
     if (table.offsetWidth === 0 || table.offsetHeight === 0) {
-      console.log("Table not ready, retrying in 100ms");
       setTimeout(() => this.renderDiagonalCapsuleSVGsFixed(container, table, diagonalCapsules), 100);
       return;
     }
@@ -1751,13 +1679,6 @@ class WordSearchGenerator {
     // Use actual rendered sizes
     const actualCellWidth = cell.offsetWidth;
     const actualCellHeight = cell.offsetHeight;
-
-    console.log("Table and cell sizes:", {
-      tableWidth: table.offsetWidth,
-      tableHeight: table.offsetHeight,
-      cellWidth: actualCellWidth,
-      cellHeight: actualCellHeight,
-    });
 
     for (const info of diagonalCapsules) {
       const { startRow, startCol, dRow, dCol, length } = info;
@@ -1770,9 +1691,6 @@ class WordSearchGenerator {
       const endX = endCol * actualCellWidth + actualCellWidth / 2;
       const endY = endRow * actualCellHeight + actualCellHeight / 2;
 
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  Calculated positions: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const extension = actualCellHeight * 0.4;
       const dx = endX - startX;
@@ -1783,8 +1701,6 @@ class WordSearchGenerator {
       const capsuleWidth = actualCellHeight * 0.7;
       const cx = (startX + endX) / 2;
       const cy = (startY + endY) / 2;
-
-      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create SVG with proper sizing
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1838,8 +1754,6 @@ class WordSearchGenerator {
    * This is more reliable than SVG for printing
    */
   createPrintFriendlyCapsules() {
-    console.log("Creating print-friendly capsules");
-
     // Remove any existing print-friendly capsules
     const existingCapsules = this.solutionGrid.querySelectorAll(".print-capsule");
     existingCapsules.forEach((capsule) => capsule.remove());
@@ -1985,195 +1899,12 @@ class WordSearchGenerator {
   }
 
   /**
-   * Debug method to test positioning hypotheses
-   */
-  debugPositioning() {
-    console.log("=== DEBUGGING POSITIONING ISSUES ===");
-
-    const table = this.solutionGrid.querySelector("table");
-    if (!table) {
-      console.log("No table found");
-      return;
-    }
-
-    const cell = table.querySelector("td");
-    if (!cell) {
-      console.log("No cell found");
-      return;
-    }
-
-    // Test Hypothesis 1: Cell Size Mismatch
-    console.log("--- Testing Hypothesis 1: Cell Size Mismatch ---");
-    const computedStyle = window.getComputedStyle(cell);
-    const computedWidth = parseInt(computedStyle.width);
-    const computedHeight = parseInt(computedStyle.height);
-    const offsetWidth = cell.offsetWidth;
-    const offsetHeight = cell.offsetHeight;
-    const clientWidth = cell.clientWidth;
-    const clientHeight = cell.clientHeight;
-    const boundingRect = cell.getBoundingClientRect();
-
-    console.log("Computed styles:", {
-      width: computedWidth,
-      height: computedHeight,
-      border: computedStyle.border,
-      padding: computedStyle.padding,
-      margin: computedStyle.margin,
-      boxSizing: computedStyle.boxSizing,
-    });
-
-    console.log("Actual measurements:", {
-      offsetWidth,
-      offsetHeight,
-      clientWidth,
-      clientHeight,
-      boundingRect: {
-        width: boundingRect.width,
-        height: boundingRect.height,
-        left: boundingRect.left,
-        top: boundingRect.top,
-      },
-    });
-
-    // Test Hypothesis 2: Table Border/Padding Offset
-    console.log("--- Testing Hypothesis 2: Table Border/Padding Offset ---");
-    const tableComputedStyle = window.getComputedStyle(table);
-    const tableRect = table.getBoundingClientRect();
-    console.log("Table styles:", {
-      border: tableComputedStyle.border,
-      padding: tableComputedStyle.padding,
-      margin: tableComputedStyle.margin,
-      borderCollapse: tableComputedStyle.borderCollapse,
-    });
-    console.log("Table measurements:", {
-      offsetWidth: table.offsetWidth,
-      offsetHeight: table.offsetHeight,
-      boundingRect: {
-        width: tableRect.width,
-        height: tableRect.height,
-        left: tableRect.left,
-        top: tableRect.top,
-      },
-    });
-
-    // Test Hypothesis 3: CSS Box Model Issues
-    console.log("--- Testing Hypothesis 3: CSS Box Model Issues ---");
-    const boxSizing = computedStyle.boxSizing;
-    const borderLeft = parseInt(computedStyle.borderLeftWidth) || 0;
-    const borderRight = parseInt(computedStyle.borderRightWidth) || 0;
-    const borderTop = parseInt(computedStyle.borderTopWidth) || 0;
-    const borderBottom = parseInt(computedStyle.borderBottomWidth) || 0;
-    const paddingLeft = parseInt(computedStyle.paddingLeft) || 0;
-    const paddingRight = parseInt(computedStyle.paddingRight) || 0;
-    const paddingTop = parseInt(computedStyle.paddingTop) || 0;
-    const paddingBottom = parseInt(computedStyle.paddingBottom) || 0;
-
-    console.log("Box model analysis:", {
-      boxSizing,
-      borders: { left: borderLeft, right: borderRight, top: borderTop, bottom: borderBottom },
-      padding: { left: paddingLeft, right: paddingRight, top: paddingTop, bottom: paddingBottom },
-      totalBorder: borderLeft + borderRight + borderTop + borderBottom,
-      totalPadding: paddingLeft + paddingRight + paddingTop + paddingBottom,
-    });
-
-    // Test Hypothesis 4: Print Media Query Scaling
-    console.log("--- Testing Hypothesis 4: Print Media Query Scaling ---");
-    const mediaQuery = window.matchMedia("print");
-    console.log("Print media query:", {
-      matches: mediaQuery.matches,
-      media: mediaQuery.media,
-    });
-
-    // Test Hypothesis 5: SVG Viewport Mismatch
-    console.log("--- Testing Hypothesis 5: SVG Viewport Mismatch ---");
-    const existingSVG = table.querySelector(".diagonal-capsule-overlay");
-    if (existingSVG) {
-      console.log("Existing SVG:", {
-        width: existingSVG.getAttribute("width"),
-        height: existingSVG.getAttribute("height"),
-        viewBox: existingSVG.getAttribute("viewBox"),
-        style: {
-          width: existingSVG.style.width,
-          height: existingSVG.style.height,
-        },
-      });
-    }
-
-    // Test Hypothesis 6: Coordinate System Origin
-    console.log("--- Testing Hypothesis 6: Coordinate System Origin ---");
-    const tableOffset = table.getBoundingClientRect();
-    const containerOffset = this.solutionGrid.getBoundingClientRect();
-    console.log("Coordinate origins:", {
-      tableOffset: { left: tableOffset.left, top: tableOffset.top },
-      containerOffset: { left: containerOffset.left, top: containerOffset.top },
-      difference: {
-        left: tableOffset.left - containerOffset.left,
-        top: tableOffset.top - containerOffset.top,
-      },
-    });
-
-    // Test Hypothesis 7: Browser Zoom/Scaling
-    console.log("--- Testing Hypothesis 7: Browser Zoom/Scaling ---");
-    console.log("Device pixel ratio:", window.devicePixelRatio);
-    console.log("Visual viewport:", {
-      width: window.visualViewport?.width,
-      height: window.visualViewport?.height,
-      scale: window.visualViewport?.scale,
-    });
-
-    // Test Hypothesis 8: CSS Transform Issues
-    console.log("--- Testing Hypothesis 8: CSS Transform Issues ---");
-    let element = table;
-    let transformChain = [];
-    while (element && element !== document.body) {
-      const style = window.getComputedStyle(element);
-      const transform = style.transform;
-      if (transform && transform !== "none") {
-        transformChain.push({
-          element: element.tagName,
-          transform: transform,
-        });
-      }
-      element = element.parentElement;
-    }
-    console.log("Transform chain:", transformChain);
-
-    // Test Hypothesis 9: Timing Issues
-    console.log("--- Testing Hypothesis 9: Timing Issues ---");
-    console.log("Table ready state:", {
-      offsetWidth: table.offsetWidth,
-      offsetHeight: table.offsetHeight,
-      children: table.children.length,
-    });
-
-    // Test Hypothesis 10: Multiple Overlay Conflicts
-    console.log("--- Testing Hypothesis 10: Multiple Overlay Conflicts ---");
-    const allOverlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay, .capsule-overlay");
-    console.log("Existing overlays:", allOverlays.length);
-    allOverlays.forEach((overlay, index) => {
-      console.log(`Overlay ${index}:`, {
-        className: overlay.className,
-        style: {
-          position: overlay.style.position,
-          left: overlay.style.left,
-          top: overlay.style.top,
-          zIndex: overlay.style.zIndex,
-        },
-      });
-    });
-
-    console.log("=== END DEBUGGING ===");
-  }
-
-  /**
    * Print-specific diagonal capsule rendering
    */
   renderDiagonalCapsulesForPrint() {
-    console.log("Rendering diagonal capsules specifically for print");
-
     const table = this.solutionGrid.querySelector("table");
     if (!table) {
-      console.log("No table found for print rendering");
+      console.warn("No table found for print rendering");
       return;
     }
 
@@ -2183,7 +1914,6 @@ class WordSearchGenerator {
 
     // Force table to be ready
     if (table.offsetWidth === 0 || table.offsetHeight === 0) {
-      console.log("Table not ready for print, forcing layout");
       // Force a layout recalculation
       table.offsetHeight;
       table.offsetWidth;
@@ -2191,7 +1921,6 @@ class WordSearchGenerator {
 
     const cell = table.querySelector("td");
     if (!cell) {
-      console.log("No cell found for print rendering");
       return;
     }
 
@@ -2199,22 +1928,12 @@ class WordSearchGenerator {
     const diagonalCapsules = this.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
 
     if (diagonalCapsules.length === 0) {
-      console.log("No diagonal words found for print");
       return;
     }
-
-    console.log(`Found ${diagonalCapsules.length} diagonal words for print`);
 
     // Use actual rendered sizes
     const actualCellWidth = cell.offsetWidth;
     const actualCellHeight = cell.offsetHeight;
-
-    console.log("Print table and cell sizes:", {
-      tableWidth: table.offsetWidth,
-      tableHeight: table.offsetHeight,
-      cellWidth: actualCellWidth,
-      cellHeight: actualCellHeight,
-    });
 
     for (const info of diagonalCapsules) {
       const { startRow, startCol, dRow, dCol, length } = info;
@@ -2227,9 +1946,6 @@ class WordSearchGenerator {
       const endX = endCol * actualCellWidth + actualCellWidth / 2;
       const endY = endRow * actualCellHeight + actualCellHeight / 2;
 
-      console.log(`Print word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  Print positions: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const extension = actualCellHeight * 0.4;
       const dx = endX - startX;
@@ -2240,8 +1956,6 @@ class WordSearchGenerator {
       const capsuleWidth = actualCellHeight * 0.7;
       const cx = (startX + endX) / 2;
       const cy = (startY + endY) / 2;
-
-      console.log(`  Print capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create SVG with proper sizing for print
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -2290,25 +2004,18 @@ class WordSearchGenerator {
 
       table.style.position = "relative";
       table.appendChild(svg);
-
-      console.log(`Added print SVG for "${info.word}"`);
     }
-
-    console.log("Print diagonal capsules rendering complete");
   }
 
   /**
    * Detect print mode and ensure overlays are visible
    */
   handlePrintMode() {
-    console.log("Handling print mode");
-
     // Add print mode detection
     const mediaQuery = window.matchMedia("print");
 
     const handlePrintChange = (e) => {
       if (e.matches) {
-        console.log("Print mode detected - ensuring ALL overlays are visible");
         // Force re-render of ALL capsules for print
         if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
           setTimeout(() => {
@@ -2326,7 +2033,6 @@ class WordSearchGenerator {
 
     // Also handle the beforeprint event
     window.addEventListener("beforeprint", () => {
-      console.log("beforeprint event fired - rendering ALL capsules");
       if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked) {
         setTimeout(() => {
           const table = this.solutionGrid.querySelector("table");
@@ -2342,15 +2048,12 @@ class WordSearchGenerator {
    * Render diagonal capsules using actual DOM cell positions
    */
   renderDiagonalCapsulesWithActualPositions(container, table, diagonalCapsules) {
-    console.log("Rendering diagonal capsules using actual DOM positions");
-
     // Remove any existing diagonal overlays
     const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
     oldOverlays.forEach((el) => el.remove());
 
     // Wait for table to be fully rendered
     if (table.offsetWidth === 0 || table.offsetHeight === 0) {
-      console.log("Table not ready, retrying in 100ms");
       setTimeout(() => this.renderDiagonalCapsulesWithActualPositions(container, table, diagonalCapsules), 100);
       return;
     }
@@ -2365,7 +2068,6 @@ class WordSearchGenerator {
       const endCell = table.querySelector(`td[data-row="${endRow}"][data-col="${endCol}"]`);
 
       if (!startCell || !endCell) {
-        console.log(`Could not find cells for word "${info.word}"`);
         continue;
       }
 
@@ -2380,9 +2082,6 @@ class WordSearchGenerator {
       const endX = endCellRect.left - tableRect.left + endCellRect.width / 2;
       const endY = endCellRect.top - tableRect.top + endCellRect.height / 2;
 
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  Actual DOM positions: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const cellHeight = startCellRect.height;
       const extension = cellHeight * 0.4;
@@ -2394,8 +2093,6 @@ class WordSearchGenerator {
       const capsuleWidth = cellHeight * 0.7;
       const cx = (startX + endX) / 2;
       const cy = (startY + endY) / 2;
-
-      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create SVG with proper sizing
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -2448,8 +2145,6 @@ class WordSearchGenerator {
    * Create diagonal capsules by directly overlaying on cells
    */
   renderDiagonalCapsulesDirectOverlay(container, table, diagonalCapsules) {
-    console.log("Creating diagonal capsules with direct cell overlay");
-
     // Remove any existing diagonal overlays
     const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
     oldOverlays.forEach((el) => el.remove());
@@ -2469,7 +2164,6 @@ class WordSearchGenerator {
       }
 
       if (cells.length !== length) {
-        console.log(`Could not find all cells for word "${info.word}"`);
         continue;
       }
 
@@ -2492,9 +2186,6 @@ class WordSearchGenerator {
       const top = minY - tableRect.top;
       const width = maxX - minX;
       const height = maxY - minY;
-
-      console.log(`Word "${info.word}": cells from (${startCol},${startRow}) to (${startCol + (length - 1) * dCol},${startRow + (length - 1) * dRow})`);
-      console.log(`  Bounding box: left=${left}, top=${top}, width=${width}, height=${height}`);
 
       // Create a proper capsule that covers all cells
       const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -2542,8 +2233,6 @@ class WordSearchGenerator {
 
       table.style.position = "relative";
       table.appendChild(svg);
-
-      console.log(`Added direct overlay for "${info.word}"`);
     }
   }
 
@@ -2551,15 +2240,12 @@ class WordSearchGenerator {
    * Create diagonal capsules using SVG viewBox for proper scaling
    */
   renderDiagonalCapsulesWithViewBox(container, table, diagonalCapsules) {
-    console.log("Creating diagonal capsules with SVG viewBox for proper scaling");
-
     // Remove any existing diagonal overlays
     const oldOverlays = table.querySelectorAll(".diagonal-capsule-overlay");
     oldOverlays.forEach((el) => el.remove());
 
     // Wait for table to be fully rendered
     if (table.offsetWidth === 0 || table.offsetHeight === 0) {
-      console.log("Table not ready, retrying in 100ms");
       setTimeout(() => this.renderDiagonalCapsulesWithViewBox(container, table, diagonalCapsules), 100);
       return;
     }
@@ -2575,16 +2261,6 @@ class WordSearchGenerator {
     // Calculate the total grid size in pixels
     const gridWidth = gridSize * actualCellWidth;
     const gridHeight = gridSize * actualCellHeight;
-
-    console.log("Grid dimensions:", {
-      gridSize,
-      cellWidth: actualCellWidth,
-      cellHeight: actualCellHeight,
-      gridWidth,
-      gridHeight,
-      tableWidth: table.offsetWidth,
-      tableHeight: table.offsetHeight,
-    });
 
     // Create a single SVG that covers the entire grid
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -2610,9 +2286,6 @@ class WordSearchGenerator {
       const endX = endCol * actualCellWidth + actualCellWidth / 2;
       const endY = endRow * actualCellHeight + actualCellHeight / 2;
 
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  SVG coordinates: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const extension = actualCellHeight * 0.4;
       const dx = endX - startX;
@@ -2622,8 +2295,6 @@ class WordSearchGenerator {
       const capsuleLength = dist + extension * 2;
       const capsuleWidth = actualCellHeight * 0.7;
       const radius = capsuleWidth / 2;
-
-      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create proper capsule shape using SVG path
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -2660,23 +2331,18 @@ class WordSearchGenerator {
 
     table.style.position = "relative";
     table.appendChild(svg);
-
-    console.log("Added SVG with viewBox for proper scaling");
   }
 
   /**
    * Render ALL capsules (horizontal, vertical, and diagonal) using viewBox for consistent positioning
    */
   renderAllCapsulesWithViewBox(container, table) {
-    console.log("Rendering ALL capsules with viewBox for consistent positioning");
-
     // Remove any existing overlays
     const oldOverlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
     oldOverlays.forEach((el) => el.remove());
 
     // Wait for table to be fully rendered
     if (table.offsetWidth === 0 || table.offsetHeight === 0) {
-      console.log("Table not ready, retrying in 100ms");
       setTimeout(() => this.renderAllCapsulesWithViewBox(container, table), 100);
       return;
     }
@@ -2693,16 +2359,6 @@ class WordSearchGenerator {
     const gridWidth = gridSize * actualCellWidth;
     const gridHeight = gridSize * actualCellHeight;
 
-    console.log("Grid dimensions:", {
-      gridSize,
-      cellWidth: actualCellWidth,
-      cellHeight: actualCellHeight,
-      gridWidth,
-      gridHeight,
-      tableWidth: table.offsetWidth,
-      tableHeight: table.offsetHeight,
-    });
-
     // Create a single SVG that covers the entire grid
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%");
@@ -2717,7 +2373,6 @@ class WordSearchGenerator {
     svg.style.zIndex = 10;
 
     // Process ALL words (horizontal, vertical, and diagonal)
-    console.log(`Processing ${this.placedWordInfos.length} words for capsules`);
 
     for (const info of this.placedWordInfos) {
       const { startRow, startCol, dRow, dCol, length } = info;
@@ -2730,9 +2385,6 @@ class WordSearchGenerator {
       const endX = endCol * actualCellWidth + actualCellWidth / 2;
       const endY = endRow * actualCellHeight + actualCellHeight / 2;
 
-      console.log(`Word "${info.word}": start(${startCol},${startRow}) end(${endCol},${endRow})`);
-      console.log(`  SVG coordinates: start(${startX},${startY}) end(${endX},${endY})`);
-
       // Capsule parameters
       const extension = actualCellHeight * 0.4;
       const dx = endX - startX;
@@ -2742,8 +2394,6 @@ class WordSearchGenerator {
       const capsuleLength = dist + extension * 2;
       const capsuleWidth = actualCellHeight * 0.7;
       const radius = capsuleWidth / 2;
-
-      console.log(`  Capsule: length=${capsuleLength}, width=${capsuleWidth}, angle=${angle}°`);
 
       // Create proper capsule shape using SVG path
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
@@ -2782,13 +2432,10 @@ class WordSearchGenerator {
       const isVertical = dCol === 0 && dRow !== 0;
       const isDiagonal = Math.abs(dRow) === 1 && Math.abs(dCol) === 1;
       const wordType = isHorizontal ? "HORIZONTAL" : isVertical ? "VERTICAL" : isDiagonal ? "DIAGONAL" : "OTHER";
-      console.log(`  Added capsule for "${info.word}" (${wordType})`);
     }
 
     table.style.position = "relative";
     table.appendChild(svg);
-
-    console.log("Added unified SVG with viewBox for ALL capsules");
   }
 }
 
@@ -2800,7 +2447,6 @@ document.addEventListener("DOMContentLoaded", () => {
   window.testPrintMode = () => generator.testPrintModeDetection();
   window.forceRenderCapsules = () => generator.forceRenderCapsules();
   window.testCapsules = () => generator.renderCapsuleCanvasOverlay();
-  window.debugPositioning = () => generator.debugPositioning();
   window.testHypothesis1 = () => {
     // Test Hypothesis 1: Use actual rendered cell sizes
     const table = generator.solutionGrid.querySelector("table");
@@ -2855,7 +2501,6 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   window.testPrintCapsules = () => {
     // Test capsules specifically for print preview
-    console.log("Testing capsules for print preview...");
 
     // Show solution if hidden
     if (generator.solutionGrid.style.display === "none") {
@@ -2867,20 +2512,12 @@ document.addEventListener("DOMContentLoaded", () => {
     if (table) {
       generator.renderAllCapsulesWithViewBox(generator.solutionGrid, table);
     }
-
-    console.log("ALL capsules re-rendered with viewBox. Now try print preview (Ctrl+P)");
   };
   window.testAllCapsules = () => {
     // Test that ALL words (horizontal, vertical, diagonal) are rendered
-    console.log("Testing ALL capsule rendering...");
-    console.log("Placed word infos:", generator.placedWordInfos);
 
     const horizontalWords = generator.placedWordInfos.filter((info) => info.dRow === 0 || info.dCol === 0);
     const diagonalWords = generator.placedWordInfos.filter((info) => Math.abs(info.dRow) === 1 && Math.abs(info.dCol) === 1);
-
-    console.log("Horizontal/Vertical words:", horizontalWords.length);
-    console.log("Diagonal words:", diagonalWords.length);
-    console.log("Total words:", generator.placedWordInfos.length);
 
     // Show solution if hidden
     if (generator.solutionGrid.style.display === "none") {
@@ -2891,40 +2528,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const table = generator.solutionGrid.querySelector("table");
     if (table) {
       generator.renderAllCapsulesWithViewBox(generator.solutionGrid, table);
-    }
-
-    console.log("All capsules should now be visible!");
-  };
-  window.debugPrintCapsules = () => {
-    // Debug what's happening with print capsules
-    console.log("=== DEBUG PRINT CAPSULES ===");
-    console.log("Outline checkbox checked:", generator.outlineFoundWordsCheckbox?.checked);
-    console.log("Solution grid hidden:", generator.solutionGrid.classList.contains("hidden"));
-    console.log("Placed word infos:", generator.placedWordInfos);
-
-    const table = generator.solutionGrid.querySelector("table");
-    console.log("Table found:", !!table);
-    if (table) {
-      console.log("Table dimensions:", table.offsetWidth, "x", table.offsetHeight);
-      const overlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
-      console.log("Existing overlays:", overlays.length);
-    }
-
-    // Show solution and force render
-    if (generator.solutionGrid.classList.contains("hidden")) {
-      generator.solutionGrid.classList.remove("hidden");
-    }
-
-    if (table) {
-      console.log("Rendering ALL capsules...");
-      generator.renderAllCapsulesWithViewBox(generator.solutionGrid, table);
-
-      // Check what was created
-      setTimeout(() => {
-        const newOverlays = table.querySelectorAll(".capsule-canvas-overlay, .diagonal-capsule-overlay");
-        console.log("Overlays after rendering:", newOverlays.length);
-        console.log("=== END DEBUG ===");
-      }, 100);
     }
   };
 });
