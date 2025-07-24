@@ -38,6 +38,7 @@ class WordSearchGenerator {
     this.toggleSolutionBtn = document.getElementById("toggleSolution");
     this.printBtn = document.getElementById("printBtn");
     this.downloadBtn = document.getElementById("downloadBtn");
+    this.downloadImageBtn = document.getElementById("downloadImageBtn");
     this.errorMessage = document.getElementById("errorMessage");
   }
 
@@ -53,6 +54,15 @@ class WordSearchGenerator {
       });
     } else {
       console.error("Download button not found");
+    }
+
+    // Add image download button
+    if (this.downloadImageBtn) {
+      this.downloadImageBtn.addEventListener("click", () => {
+        this.downloadImage();
+      });
+    } else {
+      console.error("Download image button not found");
     }
     if (this.outlineFoundWordsCheckbox) {
       this.outlineFoundWordsCheckbox.addEventListener("change", () => this.updateSolutionDisplay());
@@ -820,12 +830,12 @@ class WordSearchGenerator {
         if (isSolution) {
           if (isFound) {
             if (colorFoundWords) {
-              cell.classList.add("found-pink");
+              cell.classList.add("found-highlight");
             } else {
-              cell.classList.remove("found-pink");
+              cell.classList.remove("found-highlight");
             }
           } else {
-            cell.classList.remove("found-pink");
+            cell.classList.remove("found-highlight");
           }
         }
         cell.textContent = grid[i][j];
@@ -995,7 +1005,7 @@ class WordSearchGenerator {
 
         // Add title
         doc.setFontSize(fontSizes.puzzleTitle);
-        doc.setFont("times", "bold"); // Use serif font for title
+        doc.setFont("helvetica", "bold"); // Use Helvetica Bold for title
         const title = this.getPuzzleName();
         const titleWidth = doc.getTextWidth(title);
         const titleX = margin + (contentWidth - titleWidth) / 2;
@@ -1017,7 +1027,7 @@ class WordSearchGenerator {
 
         // Add solution title (same as puzzle title)
         doc.setFontSize(fontSizes.puzzleTitle);
-        doc.setFont("times", "bold"); // Use serif font for title
+        doc.setFont("helvetica", "bold"); // Use Helvetica Bold for title
         const solutionTitle = this.getPuzzleName();
         const solutionTitleWidth = doc.getTextWidth(solutionTitle);
         const solutionTitleX = margin + (contentWidth - solutionTitleWidth) / 2;
@@ -1034,7 +1044,7 @@ class WordSearchGenerator {
 
         // Add title
         doc.setFontSize(fontSizes.puzzleTitle);
-        doc.setFont("times", "bold"); // Use serif font for title
+        doc.setFont("helvetica", "bold"); // Use Helvetica Bold for title
         const title = this.getPuzzleName();
         const titleWidth = doc.getTextWidth(title);
         const titleX = margin + (contentWidth - titleWidth) / 2;
@@ -1051,7 +1061,7 @@ class WordSearchGenerator {
 
         // Add solution title (same as puzzle title)
         doc.setFontSize(fontSizes.puzzleTitle);
-        doc.setFont("times", "bold"); // Use serif font for title
+        doc.setFont("helvetica", "bold"); // Use Helvetica Bold for title
         const solutionTitle = this.getPuzzleName();
         const solutionTitleWidth = doc.getTextWidth(solutionTitle);
         const solutionTitleX = margin + (contentWidth - solutionTitleWidth) / 2;
@@ -1074,6 +1084,207 @@ class WordSearchGenerator {
   }
 
   /**
+   * Download puzzle as image (PNG) for Canva import
+   */
+  downloadImage() {
+    // Ensure we have content to generate
+    if (!this.currentPuzzle || !this.currentSolution) {
+      this.showError("No puzzle generated yet. Please generate a puzzle first.");
+      return;
+    }
+
+    try {
+      // Create a canvas element
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Set canvas size (8.5x11 inches at 96 DPI for simplicity)
+      const widthInches = 8.5;
+      const heightInches = 11.5; // Increased height to accommodate larger word list
+      const dpi = 96;
+      canvas.width = widthInches * dpi;
+      canvas.height = heightInches * dpi;
+
+      // Set background to white
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Set margins and content area
+      const margin = 48; // 0.5 inches
+      const contentWidth = canvas.width - 2 * margin;
+      const contentHeight = canvas.height - 2 * margin;
+
+      // Calculate grid size and cell size
+      const gridSize = this.currentPuzzle.length;
+      const isLargePrint = this.getLargePrintPreference();
+      const maxCellSize = isLargePrint ? 60 : 40; // Larger cells for large print
+      const cellSize = Math.min(contentWidth / gridSize, maxCellSize);
+      const gridWidth = gridSize * cellSize;
+      const gridHeight = gridSize * cellSize;
+      const gridX = margin + (contentWidth - gridWidth) / 2;
+
+      // Calculate title height and position
+      const titleHeight = isLargePrint ? 60 : 40;
+      let y = margin + 30;
+
+      // Draw title
+      ctx.font = `bold ${isLargePrint ? 32 : 24}px Arial`;
+      ctx.fillStyle = "black";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const title = this.getPuzzleName();
+      ctx.fillText(title, margin + contentWidth / 2, y);
+      y += titleHeight;
+
+      // Draw puzzle grid
+      this.drawGridOnCanvas(ctx, this.currentPuzzle, gridX, y, cellSize);
+      y += gridHeight + 48; // Add spacing
+
+      // Draw word list
+      y = this.drawWordListOnCanvas(ctx, margin, y, contentWidth);
+
+      // Convert canvas to blob and download
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "word-search-puzzle.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    } catch (error) {
+      console.error("Image generation error:", error);
+      this.showError("Image generation failed. Please try the PDF download instead.");
+    }
+  }
+
+  /**
+   * Draw grid on canvas
+   */
+  drawGridOnCanvas(ctx, grid, startX, startY, cellSize) {
+    const gridSize = grid.length;
+    const showGridLines = this.getGridLinesPreference();
+    const showGridBorder = this.getGridBorderPreference();
+    const isLargePrint = this.getLargePrintPreference();
+
+    // Draw border if enabled
+    if (showGridBorder) {
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(startX, startY, gridSize * cellSize, gridSize * cellSize);
+    }
+
+    // Draw grid lines if enabled
+    if (showGridLines) {
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 1;
+
+      // Vertical lines
+      for (let i = 1; i < gridSize; i++) {
+        const x = startX + i * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x, startY + gridSize * cellSize);
+        ctx.stroke();
+      }
+
+      // Horizontal lines
+      for (let i = 1; i < gridSize; i++) {
+        const y = startY + i * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(startX, y);
+        ctx.lineTo(startX + gridSize * cellSize, y);
+        ctx.stroke();
+      }
+    }
+
+    // Draw letters
+    ctx.font = `bold ${isLargePrint ? 32 : 28}px Arial`;
+    ctx.fillStyle = "black";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const x = startX + col * cellSize + cellSize / 2;
+        const y = startY + row * cellSize + cellSize / 2;
+        const letter = grid[row][col];
+
+        if (letter) {
+          ctx.fillText(letter, x, y);
+        }
+      }
+    }
+  }
+
+  /**
+   * Draw word list on canvas
+   */
+  drawWordListOnCanvas(ctx, margin, y, contentWidth) {
+    const words = this.getWordList();
+    const isLargePrint = this.getLargePrintPreference();
+
+    // Always use 3 columns
+    const numColumns = 3;
+    const wordsPerColumn = Math.ceil(words.length / numColumns);
+    const columnWidth = contentWidth / numColumns;
+    const lineHeight = isLargePrint ? 32 : 24;
+
+    // Calculate column widths
+    const columnWidths = [];
+    let totalWidth = 0;
+
+    for (let col = 0; col < numColumns; col++) {
+      const startIndex = col * wordsPerColumn;
+      const endIndex = Math.min(startIndex + wordsPerColumn, words.length);
+      const columnWords = words.slice(startIndex, endIndex);
+
+      if (columnWords.length === 0) {
+        columnWidths.push(0);
+        continue;
+      }
+
+      const longestWord = columnWords.reduce((longest, word) => (word.length > longest.length ? word : longest), columnWords[0]);
+
+      const wordWidth = ctx.measureText(longestWord).width;
+      columnWidths.push(wordWidth);
+      totalWidth += wordWidth;
+    }
+
+    // Add spacing between columns
+    const spacingBetweenColumns = isLargePrint ? 48 : 32;
+    totalWidth += (numColumns - 1) * spacingBetweenColumns;
+
+    // Calculate starting position to center the entire word list group
+    const startX = margin + (contentWidth - totalWidth) / 2;
+
+    // Draw words
+    ctx.font = `${isLargePrint ? 24 : 20}px Arial`;
+    ctx.fillStyle = "black";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "top";
+
+    let currentX = startX;
+    for (let col = 0; col < numColumns; col++) {
+      const startIndex = col * wordsPerColumn;
+      const endIndex = Math.min(startIndex + wordsPerColumn, words.length);
+      const columnWords = words.slice(startIndex, endIndex);
+
+      if (columnWords.length === 0) continue;
+
+      for (let i = 0; i < columnWords.length; i++) {
+        ctx.fillText(columnWords[i], currentX, y + i * lineHeight);
+      }
+
+      currentX += columnWidths[col] + spacingBetweenColumns;
+    }
+
+    return y + wordsPerColumn * lineHeight + 32; // Return new y position
+  }
+
+  /**
    * Calculate the height needed for the word list in columns
    */
   calculateWordListHeight(contentWidth) {
@@ -1085,8 +1296,8 @@ class WordSearchGenerator {
 
     // Calculate height needed for the tallest column
     const wordsPerColumn = Math.ceil(words.length / numColumns);
-    const lineHeight = isLargePrint ? 0.35 : 0.25; // Match the line height used in addWordList
-    const spacing = isLargePrint ? 0.4 : 0.3; // Match the final spacing used in addWordList
+    const lineHeight = isLargePrint ? 32 : 24; // Match the line height used in drawWordListOnCanvas
+    const spacing = 32; // Match the final spacing used in drawWordListOnCanvas
 
     return wordsPerColumn * lineHeight + spacing; // Column height + spacing (no label)
   }
@@ -1235,7 +1446,7 @@ class WordSearchGenerator {
 
         // Apply coloring for found words in solution
         if (isSolution && isFound && colorFoundWords) {
-          doc.setTextColor(190, 24, 93); // Pink color (#be185d)
+          doc.setTextColor(100, 100, 100); // Gray color for found words
         } else {
           doc.setTextColor(0, 0, 0); // Black color
         }
@@ -1403,7 +1614,7 @@ class WordSearchGenerator {
         if (isSolution) {
           let isFound = foundPositions.has(`${i},${j}`);
           if (isFound && colorFoundWords) {
-            cell.style.color = "#be185d"; // pink color for found words
+            cell.style.color = "#666666"; // gray color for found words
             cell.style.fontWeight = "bold";
           }
         }
