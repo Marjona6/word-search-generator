@@ -39,6 +39,7 @@ class WordSearchGenerator {
     this.printBtn = document.getElementById("printBtn");
     this.downloadBtn = document.getElementById("downloadBtn");
     this.downloadImageBtn = document.getElementById("downloadImageBtn");
+    this.downloadSolutionImageBtn = document.getElementById("downloadSolutionImageBtn");
     this.errorMessage = document.getElementById("errorMessage");
   }
 
@@ -63,6 +64,15 @@ class WordSearchGenerator {
       });
     } else {
       console.error("Download image button not found");
+    }
+
+    // Add solution image download button
+    if (this.downloadSolutionImageBtn) {
+      this.downloadSolutionImageBtn.addEventListener("click", () => {
+        this.downloadSolutionImage();
+      });
+    } else {
+      console.error("Download solution image button not found");
     }
     if (this.outlineFoundWordsCheckbox) {
       this.outlineFoundWordsCheckbox.addEventListener("change", () => this.updateSolutionDisplay());
@@ -1158,6 +1168,244 @@ class WordSearchGenerator {
       console.error("Image generation error:", error);
       this.showError("Image generation failed. Please try the PDF download instead.");
     }
+  }
+
+  /**
+   * Download solution as image
+   */
+  downloadSolutionImage() {
+    // Ensure we have content to generate
+    if (!this.currentPuzzle || !this.currentSolution) {
+      this.showError("No puzzle generated yet. Please generate a puzzle first.");
+      return;
+    }
+
+    try {
+      // Create a canvas element
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Set canvas size (8.5x11 inches at 96 DPI for simplicity)
+      const widthInches = 8.5;
+      const heightInches = 11.5; // Increased height to accommodate larger word list
+      const dpi = 96;
+      canvas.width = widthInches * dpi;
+      canvas.height = heightInches * dpi;
+
+      // Set background to white
+      ctx.fillStyle = "white";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Set margins and content area
+      const margin = 48; // 0.5 inches
+      const contentWidth = canvas.width - 2 * margin;
+      const contentHeight = canvas.height - 2 * margin;
+
+      // Calculate grid size and cell size
+      const gridSize = this.currentPuzzle.length;
+      const isLargePrint = this.getLargePrintPreference();
+      const maxCellSize = isLargePrint ? 60 : 40; // Larger cells for large print
+      const cellSize = Math.min(contentWidth / gridSize, maxCellSize);
+      const gridWidth = gridSize * cellSize;
+      const gridHeight = gridSize * cellSize;
+      const gridX = margin + (contentWidth - gridWidth) / 2;
+
+      // Calculate title height and position
+      const titleHeight = isLargePrint ? 60 : 40;
+      let y = margin + 30;
+
+      // Draw title
+      ctx.font = `bold ${isLargePrint ? 32 : 24}px Arial`;
+      ctx.fillStyle = "black";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      const title = this.getPuzzleName() + " - Solution";
+      ctx.fillText(title, margin + contentWidth / 2, y);
+      y += titleHeight;
+
+      // Draw solution grid
+      this.drawSolutionGridOnCanvas(ctx, this.currentSolution, gridX, y, cellSize);
+      y += gridHeight + 48; // Add spacing
+
+      // Don't draw word list for solution images
+
+      // Convert canvas to blob and download
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "word-search-solution.png";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    } catch (error) {
+      console.error("Solution image generation error:", error);
+      this.showError("Solution image generation failed. Please try the PDF download instead.");
+    }
+  }
+
+  /**
+   * Draw solution grid on canvas
+   */
+  drawSolutionGridOnCanvas(ctx, solution, startX, startY, cellSize) {
+    const gridSize = solution.length;
+    const showGridLines = this.getGridLinesPreference();
+    const showGridBorder = this.getGridBorderPreference();
+    const isLargePrint = this.getLargePrintPreference();
+    const hideOther = this.hideOtherSolutionLettersCheckbox.checked;
+    const colorFoundWords = this.colorFoundWordsCheckbox.checked;
+
+    // Determine which grid to use based on hideOther setting
+    const displayGrid = hideOther ? solution : this.currentPuzzle;
+
+    // Draw border if enabled
+    if (showGridBorder) {
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(startX, startY, gridSize * cellSize, gridSize * cellSize);
+    }
+
+    // Draw grid lines if enabled
+    if (showGridLines) {
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 1;
+
+      // Vertical lines
+      for (let i = 1; i < gridSize; i++) {
+        const x = startX + i * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(x, startY);
+        ctx.lineTo(x, startY + gridSize * cellSize);
+        ctx.stroke();
+      }
+
+      // Horizontal lines
+      for (let i = 1; i < gridSize; i++) {
+        const y = startY + i * cellSize;
+        ctx.beginPath();
+        ctx.moveTo(startX, y);
+        ctx.lineTo(startX + gridSize * cellSize, y);
+        ctx.stroke();
+      }
+    }
+
+    // Draw letters
+    ctx.font = `bold ${isLargePrint ? 32 : 28}px Arial`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Build a set of all found word positions for fast lookup
+    let foundPositions = new Set();
+    if (this.placedWordInfos) {
+      for (const info of this.placedWordInfos) {
+        const { startRow, startCol, dRow, dCol, length } = info;
+        for (let i = 0; i < length; i++) {
+          foundPositions.add(`${startRow + i * dRow},${startCol + i * dCol}`);
+        }
+      }
+    }
+
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const x = startX + col * cellSize + cellSize / 2;
+        const y = startY + row * cellSize + cellSize / 2;
+        const letter = displayGrid[row][col];
+
+        if (letter) {
+          // Check if this letter is part of a found word
+          const isFound = foundPositions.has(`${row},${col}`);
+
+          if (isFound && colorFoundWords) {
+            // Draw found letters in gray
+            ctx.fillStyle = "#6B7280"; // gray-500
+            ctx.fillText(letter, x, y);
+          } else if (!hideOther || isFound) {
+            // Draw other letters in black (if not hiding them, or if it's a found letter)
+            ctx.fillStyle = "black";
+            ctx.fillText(letter, x, y);
+          }
+          // If hideOther is true and letter is not found, don't draw it
+        }
+      }
+    }
+
+    // Draw capsule outlines around found words if the option is enabled
+    if (this.outlineFoundWordsCheckbox && this.outlineFoundWordsCheckbox.checked && this.placedWordInfos) {
+      this.drawCapsuleOutlinesOnCanvas(ctx, startX, startY, cellSize);
+    }
+  }
+
+  /**
+   * Draw capsule outlines around found words on canvas
+   */
+  drawCapsuleOutlinesOnCanvas(ctx, startX, startY, cellSize) {
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = Math.max(1, cellSize * 0.15);
+    ctx.globalAlpha = 0.85;
+
+    for (const info of this.placedWordInfos) {
+      const { startRow, startCol, dRow, dCol, length } = info;
+      const endRow = startRow + (length - 1) * dRow;
+      const endCol = startCol + (length - 1) * dCol;
+
+      // Calculate center of start and end cells
+      const startX_center = startX + startCol * cellSize + cellSize / 2;
+      const startY_center = startY + startRow * cellSize + cellSize / 2;
+      const endX_center = startX + endCol * cellSize + cellSize / 2;
+      const endY_center = startY + endRow * cellSize + cellSize / 2;
+
+      // Capsule parameters
+      const extension = cellSize * 0.4;
+      const dx = endX_center - startX_center;
+      const dy = endY_center - startY_center;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+      const capsuleLength = dist + extension * 2;
+      const capsuleWidth = cellSize * 0.7;
+      const radius = capsuleWidth / 2;
+
+      // Calculate capsule center
+      const centerX = (startX_center + endX_center) / 2;
+      const centerY = (startY_center + endY_center) / 2;
+
+      // Save context, rotate, draw capsule, restore context
+      ctx.save();
+      ctx.translate(centerX, centerY);
+      ctx.rotate(angle);
+
+      // Draw capsule using proper path construction
+      const halfLength = capsuleLength / 2;
+      const halfWidth = capsuleWidth / 2;
+
+      ctx.beginPath();
+
+      // Top edge
+      ctx.moveTo(-halfLength + radius, -halfWidth);
+      ctx.lineTo(halfLength - radius, -halfWidth);
+      ctx.arc(halfLength - radius, -halfWidth + radius, radius, -Math.PI / 2, 0);
+
+      // Right edge
+      ctx.lineTo(halfLength, halfWidth - radius);
+      ctx.arc(halfLength - radius, halfWidth - radius, radius, 0, Math.PI / 2);
+
+      // Bottom edge
+      ctx.lineTo(-halfLength + radius, halfWidth);
+      ctx.arc(-halfLength + radius, halfWidth - radius, radius, Math.PI / 2, Math.PI);
+
+      // Left edge
+      ctx.lineTo(-halfLength, -halfWidth + radius);
+      ctx.arc(-halfLength + radius, -halfWidth + radius, radius, Math.PI, -Math.PI / 2);
+
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Reset global alpha
+    ctx.globalAlpha = 1.0;
   }
 
   /**
